@@ -1,7 +1,1 @@
-
-
-import Alpine from 'alpinejs';
-
-window.Alpine = Alpine;
-
-Alpine.start();
+// Alpine é gerenciado pelo Livewire 4 — não inicializar aqui

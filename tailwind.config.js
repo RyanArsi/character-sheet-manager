@@ -20,7 +20,7 @@ export default {
     plugins: [forms],
 
     safelist: [
-        'text-orange-400', 'text-green-400', 'text-red-400',
+        'text-orange-400', 'text-green-400', 'text-red-400', 'text-red-600',
         'text-purple-400', 'text-cyan-400', 'text-pink-400',
         'text-blue-400',
     ],

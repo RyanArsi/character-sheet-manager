@@ -54,58 +54,82 @@
                 class="w-full bg-transparent text-center text-white font-semibold text-sm border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 focus:outline-none pb-1 placeholder-gray-500"
             >
 
-            <div class="flex gap-2 w-full">
-                <input type="text" wire:model="race" placeholder="Raça"
-                    class="w-1/2 bg-gray-800 text-xs text-gray-300 rounded px-2 py-1 border border-gray-700 focus:border-amber-500 focus:ring-0 focus:outline-none placeholder-gray-600">
-                <input type="text" wire:model="village" placeholder="Aldeia"
-                    class="w-1/2 bg-gray-800 text-xs text-gray-300 rounded px-2 py-1 border border-gray-700 focus:border-amber-500 focus:ring-0 focus:outline-none placeholder-gray-600">
-            </div>
         </div>
 
         {{-- Barras de Vida e Chakra --}}
-        <div class="px-4 py-4 border-b border-gray-700 space-y-4">
+        <div class="px-4 py-4 border-b border-gray-700 space-y-5">
 
             {{-- Vida --}}
             <div>
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-2">
                     <span class="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1">
                         <span>❤</span> Vida
                     </span>
-                    <div class="flex items-center gap-1 text-xs text-gray-300">
-                        <input type="number" wire:model="hp_current" min="0" :max="hp_max"
-                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white focus:border-red-400 focus:ring-0 focus:outline-none">
-                        <span class="text-gray-500">/</span>
-                        <input type="number" wire:model="hp_max" min="1"
-                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 focus:border-red-400 focus:ring-0 focus:outline-none">
+                    <div class="flex items-center gap-1 text-xs text-gray-400">
+                        <span>máx:</span>
+                        <input type="number" wire:model.live="hp_max" min="1"
+                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-red-400 focus:ring-0 focus:outline-none">
                     </div>
                 </div>
-                <div class="h-2.5 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                        class="h-full bg-gradient-to-r from-red-700 to-red-500 rounded-full transition-all duration-300"
-                        style="width: {{ $hp_max > 0 ? min(100, round(($hp_current / $hp_max) * 100)) : 0 }}%"
-                    ></div>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" wire:click="adjustHp(-5)"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">«</button>
+                    <button type="button" wire:click="adjustHp(-1)"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">‹</button>
+
+                    <div class="relative flex-1 h-8 bg-gray-700 rounded-lg overflow-hidden">
+                        <div
+                            class="absolute inset-y-0 left-0 bg-gradient-to-r from-red-800 to-red-500 transition-all duration-200"
+                            style="width: {{ $hp_max > 0 ? min(100, round(($hp_current / $hp_max) * 100)) : 0 }}%"
+                        ></div>
+                        <div class="absolute inset-0 flex items-center justify-center gap-0.5">
+                            <input type="number" wire:model.live="hp_current" min="0"
+                                class="bar-input w-12 bg-transparent text-center text-white text-sm font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
+                            <span class="text-white/70 text-xs font-medium">/{{ $hp_max }}</span>
+                        </div>
+                    </div>
+
+                    <button type="button" wire:click="adjustHp(1)"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">›</button>
+                    <button type="button" wire:click="adjustHp(5)"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">»</button>
                 </div>
             </div>
 
             {{-- Chakra --}}
             <div>
-                <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center justify-between mb-2">
                     <span class="text-xs font-bold text-blue-400 uppercase tracking-wider flex items-center gap-1">
                         <span>✦</span> Chakra
                     </span>
-                    <div class="flex items-center gap-1 text-xs text-gray-300">
-                        <input type="number" wire:model="chakra_current" min="0" :max="chakra_max"
-                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white focus:border-blue-400 focus:ring-0 focus:outline-none">
-                        <span class="text-gray-500">/</span>
-                        <input type="number" wire:model="chakra_max" min="1"
-                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 focus:border-blue-400 focus:ring-0 focus:outline-none">
+                    <div class="flex items-center gap-1 text-xs text-gray-400">
+                        <span>máx:</span>
+                        <input type="number" wire:model.live="chakra_max" min="1"
+                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-blue-400 focus:ring-0 focus:outline-none">
                     </div>
                 </div>
-                <div class="h-2.5 bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                        class="h-full bg-gradient-to-r from-blue-700 to-cyan-500 rounded-full transition-all duration-300"
-                        style="width: {{ $chakra_max > 0 ? min(100, round(($chakra_current / $chakra_max) * 100)) : 0 }}%"
-                    ></div>
+                <div class="flex items-center gap-1.5">
+                    <button type="button" wire:click="adjustChakra(-5)"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">«</button>
+                    <button type="button" wire:click="adjustChakra(-1)"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">‹</button>
+
+                    <div class="relative flex-1 h-8 bg-gray-700 rounded-lg overflow-hidden">
+                        <div
+                            class="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-800 to-cyan-500 transition-all duration-200"
+                            style="width: {{ $chakra_max > 0 ? min(100, round(($chakra_current / $chakra_max) * 100)) : 0 }}%"
+                        ></div>
+                        <div class="absolute inset-0 flex items-center justify-center gap-0.5">
+                            <input type="number" wire:model.live="chakra_current" min="0"
+                                class="bar-input w-12 bg-transparent text-center text-white text-sm font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
+                            <span class="text-white/70 text-xs font-medium">/{{ $chakra_max }}</span>
+                        </div>
+                    </div>
+
+                    <button type="button" wire:click="adjustChakra(1)"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">›</button>
+                    <button type="button" wire:click="adjustChakra(5)"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">»</button>
                 </div>
             </div>
 
@@ -117,22 +141,22 @@
             <div class="space-y-2">
                 @foreach([
                     ['forca',        'Força',        'text-orange-400'],
-                    ['agilidade',    'Agilidade',     'text-green-400'],
+                    ['agilidade',    'Agilidade',     'text-cyan-400'],
                     ['constituicao', 'Constituição',  'text-red-400'],
                     ['inteligencia', 'Inteligência',  'text-purple-400'],
-                    ['sabedoria',    'Sabedoria',     'text-cyan-400'],
+                    ['sabedoria',    'Sabedoria',     'text-green-400'],
                     ['carisma',      'Carisma',       'text-pink-400'],
                 ] as [$field, $label, $color])
                 <div class="flex items-center justify-between">
                     <span class="text-xs {{ $color }} font-medium">{{ $label }}</span>
                     <div class="flex items-center gap-1">
                         <button type="button"
-                            wire:click="$set('{{ $field }}', max(1, {{ $$field }} - 1))"
+                            wire:click="adjustAttr('{{ $field }}', -1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
-                        <input type="number" wire:model="{{ $field }}" min="1" max="30"
+                        <input type="number" wire:model.live="{{ $field }}" min="1" max="30"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
                         <button type="button"
-                            wire:click="$set('{{ $field }}', min(30, {{ $$field }} + 1))"
+                            wire:click="adjustAttr('{{ $field }}', 1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
                         <span class="text-xs text-gray-500 w-8 text-right">
                             {{ ($mod = intdiv($$field - 10, 2)) >= 0 ? "+$mod" : $mod }}
@@ -149,19 +173,19 @@
             <div class="space-y-2">
                 @foreach([
                     ['ninjutsu', 'Ninjutsu', 'text-blue-400'],
-                    ['genjutsu', 'Genjutsu', 'text-purple-400'],
-                    ['taijutsu', 'Taijutsu', 'text-orange-400'],
+                    ['genjutsu', 'Genjutsu', 'text-red-600'],
+                    ['taijutsu', 'Taijutsu', 'text-green-400'],
                 ] as [$field, $label, $color])
                 <div class="flex items-center justify-between">
                     <span class="text-xs {{ $color }} font-medium">{{ $label }}</span>
                     <div class="flex items-center gap-1">
                         <button type="button"
-                            wire:click="$set('{{ $field }}', max(0, {{ $$field }} - 1))"
+                            wire:click="adjustAttr('{{ $field }}', -1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
-                        <input type="number" wire:model="{{ $field }}" min="0"
+                        <input type="number" wire:model.live="{{ $field }}" min="0"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
                         <button type="button"
-                            wire:click="$set('{{ $field }}', {{ $$field }} + 1)"
+                            wire:click="adjustAttr('{{ $field }}', 1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
                     </div>
                 </div>

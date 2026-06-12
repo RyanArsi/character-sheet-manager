@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Remove borda/outline de inputs dentro das barras de vida/chakra */
+.bar-input {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+}

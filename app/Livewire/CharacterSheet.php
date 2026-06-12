@@ -20,8 +20,6 @@ class CharacterSheet extends Component
     // Identidade
     #[Rule('required|string|max:100')]
     public string $name = '';
-    public ?string $race = '';
-    public ?string $village = '';
     public int $level = 1;
     public int $xp = 0;
 
@@ -57,7 +55,7 @@ class CharacterSheet extends Component
 
         $this->characterId = $character->id;
         $this->fill($character->only([
-            'name', 'race', 'village', 'level', 'xp',
+            'name', 'level', 'xp',
             'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
             'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
             'ninjutsu', 'genjutsu', 'taijutsu',
@@ -85,8 +83,6 @@ class CharacterSheet extends Component
 
         $character->update([
             'name' => $this->name,
-            'race' => $this->race ?? '',
-            'village' => $this->village ?? '',
             'level' => $this->level,
             'xp' => $this->xp,
             'hp_current' => $this->hp_current,
@@ -111,6 +107,28 @@ class CharacterSheet extends Component
         }
 
         $this->dispatch('saved');
+    }
+
+    public function adjustAttr(string $field, int $delta): void
+    {
+        $allowed = ['forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
+                    'ninjutsu', 'genjutsu', 'taijutsu'];
+
+        if (! in_array($field, $allowed)) {
+            return;
+        }
+
+        $this->$field = max(0, $this->$field + $delta);
+    }
+
+    public function adjustHp(int $delta): void
+    {
+        $this->hp_current = max(0, min($this->hp_max, $this->hp_current + $delta));
+    }
+
+    public function adjustChakra(int $delta): void
+    {
+        $this->chakra_current = max(0, min($this->chakra_max, $this->chakra_current + $delta));
     }
 
     public function uploadAvatar(): void
