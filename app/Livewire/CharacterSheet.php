@@ -17,19 +17,16 @@ class CharacterSheet extends Component
     #[Locked]
     public int $characterId;
 
-    // Identidade
     #[Rule('required|string|max:100')]
     public string $name = '';
     public int $level = 1;
     public int $xp = 0;
 
-    // Barras
     public int $hp_current = 20;
     public int $hp_max = 20;
     public int $chakra_current = 20;
     public int $chakra_max = 20;
 
-    // Atributos
     public int $forca = 10;
     public int $agilidade = 10;
     public int $constituicao = 10;
@@ -37,15 +34,12 @@ class CharacterSheet extends Component
     public int $sabedoria = 10;
     public int $carisma = 10;
 
-    // Especializações
     public int $ninjutsu = 0;
     public int $genjutsu = 0;
     public int $taijutsu = 0;
 
-    // Perícias: [['id' => ..., 'name' => ..., 'attribute' => ..., 'value' => ..., 'trained' => ...]]
     public array $skills = [];
 
-    // Avatar
     public $newAvatar;
     public ?string $avatarPath = null;
 
@@ -75,6 +69,38 @@ class CharacterSheet extends Component
             ->toArray();
     }
 
+    // Chamado pelo Alpine após cada round-trip — sincroniza localStorage com estado do servidor
+    public function updated(): void
+    {
+        $this->dispatch('sync-storage', state: $this->currentState());
+    }
+
+    // Restaura estado vindo do localStorage (chamado pelo Alpine no init)
+    public function restoreFromSession(array $data): void
+    {
+        $fields = ['name', 'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
+                   'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
+                   'ninjutsu', 'genjutsu', 'taijutsu'];
+
+        foreach ($fields as $field) {
+            if (isset($data[$field])) {
+                $this->$field = $data[$field];
+            }
+        }
+
+        if (! empty($data['skills'])) {
+            foreach ($data['skills'] as $incoming) {
+                foreach ($this->skills as $i => $skill) {
+                    if ($skill['id'] === $incoming['id']) {
+                        $this->skills[$i]['value']   = $incoming['value'];
+                        $this->skills[$i]['trained']  = $incoming['trained'];
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     public function save(): void
     {
         $this->validate();
@@ -82,22 +108,22 @@ class CharacterSheet extends Component
         $character = Character::find($this->characterId);
 
         $character->update([
-            'name' => $this->name,
-            'level' => $this->level,
-            'xp' => $this->xp,
-            'hp_current' => $this->hp_current,
-            'hp_max' => $this->hp_max,
+            'name'           => $this->name,
+            'level'          => $this->level,
+            'xp'             => $this->xp,
+            'hp_current'     => $this->hp_current,
+            'hp_max'         => $this->hp_max,
             'chakra_current' => $this->chakra_current,
-            'chakra_max' => $this->chakra_max,
-            'forca' => $this->forca,
-            'agilidade' => $this->agilidade,
-            'constituicao' => $this->constituicao,
-            'inteligencia' => $this->inteligencia,
-            'sabedoria' => $this->sabedoria,
-            'carisma' => $this->carisma,
-            'ninjutsu' => $this->ninjutsu,
-            'genjutsu' => $this->genjutsu,
-            'taijutsu' => $this->taijutsu,
+            'chakra_max'     => $this->chakra_max,
+            'forca'          => $this->forca,
+            'agilidade'      => $this->agilidade,
+            'constituicao'   => $this->constituicao,
+            'inteligencia'   => $this->inteligencia,
+            'sabedoria'      => $this->sabedoria,
+            'carisma'        => $this->carisma,
+            'ninjutsu'       => $this->ninjutsu,
+            'genjutsu'       => $this->genjutsu,
+            'taijutsu'       => $this->taijutsu,
         ]);
 
         foreach ($this->skills as $skill) {
@@ -133,15 +159,34 @@ class CharacterSheet extends Component
 
     public function uploadAvatar(): void
     {
-        $this->validateOnly('newAvatar', [
-            'newAvatar' => 'image|max:2048',
-        ]);
+        $this->validateOnly('newAvatar', ['newAvatar' => 'image|max:2048']);
 
         $path = $this->newAvatar->store('avatars', 'public');
 
         Character::find($this->characterId)->update(['avatar' => $path]);
         $this->avatarPath = $path;
         $this->newAvatar = null;
+    }
+
+    private function currentState(): array
+    {
+        return [
+            'name'           => $this->name,
+            'hp_current'     => $this->hp_current,
+            'hp_max'         => $this->hp_max,
+            'chakra_current' => $this->chakra_current,
+            'chakra_max'     => $this->chakra_max,
+            'forca'          => $this->forca,
+            'agilidade'      => $this->agilidade,
+            'constituicao'   => $this->constituicao,
+            'inteligencia'   => $this->inteligencia,
+            'sabedoria'      => $this->sabedoria,
+            'carisma'        => $this->carisma,
+            'ninjutsu'       => $this->ninjutsu,
+            'genjutsu'       => $this->genjutsu,
+            'taijutsu'       => $this->taijutsu,
+            'skills'         => $this->skills,
+        ];
     }
 
     public function render()

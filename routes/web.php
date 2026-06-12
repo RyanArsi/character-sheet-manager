@@ -20,6 +20,7 @@ Route::middleware('auth')->group(function () {
 
     Route::post('/fichas', [CharacterController::class, 'create'])->name('fichas.criar');
     Route::get('/fichas/{character}/editar', CharacterSheet::class)->name('fichas.editar');
+    Route::post('/fichas/{character}/autosave', [CharacterController::class, 'autosave'])->name('fichas.autosave');
 });
 
 require __DIR__.'/auth.php';

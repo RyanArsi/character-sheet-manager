@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Character;
 use App\Support\SkillDefinitions;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class CharacterController extends Controller
 {
@@ -20,5 +22,42 @@ class CharacterController extends Controller
         }
 
         return redirect()->route('fichas.editar', $character);
+    }
+
+    public function autosave(Request $request, Character $character): Response
+    {
+        abort_unless(auth()->id() === $character->user_id, 403);
+
+        $data = $request->json()->all();
+
+        $character->update(array_filter([
+            'name'           => $data['name']           ?? null,
+            'hp_current'     => $data['hp_current']     ?? null,
+            'hp_max'         => $data['hp_max']         ?? null,
+            'chakra_current' => $data['chakra_current'] ?? null,
+            'chakra_max'     => $data['chakra_max']     ?? null,
+            'forca'          => $data['forca']          ?? null,
+            'agilidade'      => $data['agilidade']      ?? null,
+            'constituicao'   => $data['constituicao']   ?? null,
+            'inteligencia'   => $data['inteligencia']   ?? null,
+            'sabedoria'      => $data['sabedoria']      ?? null,
+            'carisma'        => $data['carisma']        ?? null,
+            'ninjutsu'       => $data['ninjutsu']       ?? null,
+            'genjutsu'       => $data['genjutsu']       ?? null,
+            'taijutsu'       => $data['taijutsu']       ?? null,
+        ], fn ($v) => $v !== null));
+
+        if (! empty($data['skills'])) {
+            foreach ($data['skills'] as $skill) {
+                $character->skills()
+                    ->where('id', $skill['id'])
+                    ->update([
+                        'value'   => $skill['value'],
+                        'trained' => $skill['trained'],
+                    ]);
+            }
+        }
+
+        return response()->noContent();
     }
 }

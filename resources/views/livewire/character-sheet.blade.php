@@ -1,24 +1,69 @@
-<div
-    class="flex h-screen overflow-hidden"
-    x-data="{
+@push('scripts')
+<script>
+function characterSheet(cid) {
+    return {
+        cid,
         dirty: false,
         saveTimer: null,
         savedMsg: false,
+        restoredMsg: false,
+
         init() {
-            $wire.on('saved', () => {
+            this.$wire.on('sync-storage', (state) => {
+                localStorage.setItem('char_' + this.cid, JSON.stringify(state));
+                this.dirty = true;
+                clearTimeout(this.saveTimer);
+                this.saveTimer = setTimeout(() => this.$wire.save(), 30000);
+            });
+
+            this.$wire.on('saved', () => {
                 this.dirty = false;
                 this.savedMsg = true;
-                setTimeout(() => this.savedMsg = false, 2000);
+                localStorage.removeItem('char_' + this.cid);
+                clearTimeout(this.saveTimer);
+                setTimeout(() => { this.savedMsg = false; }, 2500);
             });
-        },
-        markDirty() {
-            this.dirty = true;
-            clearTimeout(this.saveTimer);
-            this.saveTimer = setTimeout(() => $wire.save(), 30000);
+
+            this.$nextTick(() => {
+                const raw = localStorage.getItem('char_' + this.cid);
+                if (!raw) return;
+                this.$wire.restoreFromSession(JSON.parse(raw)).then(() => {
+                    this.dirty = true;
+                    this.restoredMsg = true;
+                    setTimeout(() => { this.restoredMsg = false; }, 3000);
+                });
+            });
+
+            const flushToServer = () => {
+                if (!this.dirty) return;
+                const raw = localStorage.getItem('char_' + this.cid);
+                if (!raw) return;
+                fetch('/fichas/' + this.cid + '/autosave', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: raw,
+                    keepalive: true,
+                }).then(() => {
+                    localStorage.removeItem('char_' + this.cid);
+                });
+            };
+
+            window.addEventListener('beforeunload', flushToServer);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) flushToServer();
+            });
         }
-    }"
-    @input="markDirty()"
-    @change="markDirty()"
+    };
+}
+</script>
+@endpush
+
+<div
+    class="flex h-screen overflow-hidden"
+    x-data="characterSheet({{ $characterId }})"
 >
 
     {{-- ===== COLUNA ESQUERDA (fixa, rolável internamente) ===== --}}
@@ -49,7 +94,7 @@
 
             <input
                 type="text"
-                wire:model="name"
+                wire:model.live="name"
                 placeholder="Nome do Personagem"
                 class="w-full bg-transparent text-center text-white font-semibold text-sm border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 focus:outline-none pb-1 placeholder-gray-500"
             >
@@ -158,9 +203,6 @@
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', 1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
-                        <span class="text-xs text-gray-500 w-8 text-right">
-                            {{ ($mod = intdiv($$field - 10, 2)) >= 0 ? "+$mod" : $mod }}
-                        </span>
                     </div>
                 </div>
                 @endforeach
@@ -201,7 +243,7 @@
                 <div class="flex items-center gap-1.5">
                     {{-- Checkbox treinado --}}
                     <input type="checkbox"
-                        wire:model="skills.{{ $i }}.trained"
+                        wire:model.live="skills.{{ $i }}.trained"
                         class="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-0 focus:ring-offset-0 cursor-pointer flex-shrink-0">
 
                     {{-- Nome + atributo --}}
@@ -212,7 +254,7 @@
 
                     {{-- Valor --}}
                     <input type="number"
-                        wire:model="skills.{{ $i }}.value"
+                        wire:model.live="skills.{{ $i }}.value"
                         class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-xs font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
                 </div>
                 @endforeach
@@ -238,7 +280,14 @@
             </div>
             <div class="flex items-center gap-3">
                 <span
-                    x-show="dirty && !savedMsg"
+                    x-show="restoredMsg"
+                    x-transition
+                    class="text-xs text-amber-400 flex items-center gap-1"
+                >
+                    <span>⟳</span> Alterações não salvas restauradas
+                </span>
+                <span
+                    x-show="dirty && !savedMsg && !restoredMsg"
                     x-transition
                     class="text-xs text-gray-500 flex items-center gap-1"
                 >
@@ -250,7 +299,7 @@
                     x-transition
                     class="text-xs text-green-400 flex items-center gap-1"
                 >
-                    <span>✓</span> Salvo
+                    <span>✓</span> Salvo no servidor
                 </span>
                 <button
                     type="button"
