@@ -8,6 +8,28 @@ function characterSheet(cid) {
         savedMsg: false,
         restoredMsg: false,
 
+        // Rolagem de dados
+        roll: { label: '', die: 0, bonus: 0, total: 0, visible: false, timer: null },
+        rollHistory: [],
+        historyOpen: false,
+
+        rollDice(label, bonus) {
+            const die = Math.floor(Math.random() * 20) + 1;
+            bonus = parseInt(bonus) || 0;
+            const total = die + bonus;
+            const now = new Date();
+            const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            clearTimeout(this.roll.timer);
+            this.roll = {
+                label, die, bonus, total, visible: true,
+                timer: setTimeout(() => { this.roll.visible = false; }, 6000),
+            };
+
+            this.rollHistory.unshift({ label, die, bonus, total, time });
+            if (this.rollHistory.length > 50) this.rollHistory.pop();
+        },
+
         init() {
             this.$wire.on('sync-storage', (state) => {
                 localStorage.setItem('char_' + this.cid, JSON.stringify(state));
@@ -192,8 +214,12 @@ function characterSheet(cid) {
                     ['sabedoria',    'Sabedoria',     'text-green-400'],
                     ['carisma',      'Carisma',       'text-pink-400'],
                 ] as [$field, $label, $color])
-                <div class="flex items-center justify-between">
-                    <span class="text-xs {{ $color }} font-medium">{{ $label }}</span>
+                <div class="flex items-center justify-between group">
+                    <button type="button"
+                        @click="rollDice('{{ $label }}', $wire.{{ $field }})"
+                        class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
+                        {{ $label }}
+                    </button>
                     <div class="flex items-center gap-1">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
@@ -219,7 +245,11 @@ function characterSheet(cid) {
                     ['taijutsu', 'Taijutsu', 'text-green-400'],
                 ] as [$field, $label, $color])
                 <div class="flex items-center justify-between">
-                    <span class="text-xs {{ $color }} font-medium">{{ $label }}</span>
+                    <button type="button"
+                        @click="rollDice('{{ $label }}', $wire.{{ $field }})"
+                        class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
+                        {{ $label }}
+                    </button>
                     <div class="flex items-center gap-1">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
@@ -246,11 +276,13 @@ function characterSheet(cid) {
                         wire:model.live="skills.{{ $i }}.trained"
                         class="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-0 focus:ring-offset-0 cursor-pointer flex-shrink-0">
 
-                    {{-- Nome + atributo --}}
-                    <span class="flex-1 text-xs text-gray-300 leading-tight {{ $skill['trained'] ? 'font-semibold text-white' : '' }}">
+                    {{-- Nome clicável --}}
+                    <button type="button"
+                        @click="rollDice('{{ $skill['name'] }}', $wire.skills[{{ $i }}].value)"
+                        class="flex-1 text-xs text-gray-300 leading-tight text-left hover:text-white transition-colors cursor-pointer {{ $skill['trained'] ? 'font-semibold text-white' : '' }}">
                         {{ $skill['name'] }}
                         <span class="text-gray-600 text-[10px]">({{ $skill['attribute'] }})</span>
-                    </span>
+                    </button>
 
                     {{-- Valor --}}
                     <input type="number"
@@ -301,6 +333,15 @@ function characterSheet(cid) {
                 >
                     <span>✓</span> Salvo no servidor
                 </span>
+                {{-- Histórico de rolagens --}}
+                <button type="button" @click="historyOpen = true"
+                    class="p-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors relative"
+                    title="Histórico de rolagens">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/>
+                    </svg>
+                </button>
+
                 <button
                     type="button"
                     wire:click="save"
@@ -319,5 +360,118 @@ function characterSheet(cid) {
         </div>
 
     </main>
+
+    {{-- Painel lateral de histórico --}}
+    <div x-show="historyOpen" class="fixed inset-0 z-40 flex justify-end" x-cloak>
+        {{-- Overlay --}}
+        <div class="absolute inset-0 bg-black/50" @click="historyOpen = false"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0">
+        </div>
+
+        {{-- Drawer --}}
+        <div class="relative w-80 bg-gray-900 border-l border-gray-700 flex flex-col h-full shadow-2xl"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="translate-x-full"
+            x-transition:enter-end="translate-x-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="translate-x-full">
+
+            {{-- Header --}}
+            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
+                <h2 class="text-sm font-semibold text-white flex items-center gap-2">
+                    🎲 Histórico de Rolagens
+                </h2>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="rollHistory = []"
+                        x-show="rollHistory.length > 0"
+                        class="text-[10px] text-gray-500 hover:text-red-400 transition-colors">
+                        Limpar
+                    </button>
+                    <button type="button" @click="historyOpen = false"
+                        class="text-gray-400 hover:text-white transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Lista --}}
+            <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+                <template x-if="rollHistory.length === 0">
+                    <p class="text-gray-600 text-sm text-center mt-8">Nenhuma rolagem ainda.<br>Clique em um atributo, especialização ou perícia.</p>
+                </template>
+
+                <template x-for="(r, i) in rollHistory" :key="i">
+                    <div class="flex items-center gap-3 bg-gray-800 rounded-lg px-3 py-2.5"
+                        :class="r.die === 20 ? 'ring-1 ring-amber-500/50' : r.die === 1 ? 'ring-1 ring-red-500/50' : ''">
+
+                        {{-- Dado --}}
+                        <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 font-black text-sm"
+                            :class="r.die === 20 ? 'bg-amber-500/20 text-amber-400' : r.die === 1 ? 'bg-red-500/20 text-red-400' : 'bg-gray-700 text-white'"
+                            x-text="r.die">
+                        </div>
+
+                        {{-- Info --}}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-medium text-white truncate" x-text="r.label"></p>
+                            <p class="text-[10px] text-gray-500">
+                                <span x-text="r.die"></span> + <span x-text="r.bonus"></span> = <span class="text-amber-400 font-bold" x-text="r.total"></span>
+                                <span x-show="r.die === 20" class="text-amber-400 ml-1">✦ crítico!</span>
+                                <span x-show="r.die === 1" class="text-red-400 ml-1">✦ falha!</span>
+                            </p>
+                        </div>
+
+                        {{-- Hora --}}
+                        <span class="text-[10px] text-gray-600 flex-shrink-0" x-text="r.time"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    {{-- Painel de rolagem — canto inferior direito --}}
+    <div
+        x-show="roll.visible"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0 translate-y-4"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-300"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-4"
+        class="fixed bottom-6 right-6 z-50 select-none"
+        @click="roll.visible = false"
+    >
+        <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl px-5 py-4 min-w-48 cursor-pointer">
+            <p class="text-xs text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                🎲 <span x-text="roll.label"></span>
+            </p>
+            <div class="flex items-end gap-2">
+                <div class="text-center">
+                    <p class="text-[10px] text-gray-500 mb-0.5">dado</p>
+                    <span class="text-2xl font-bold"
+                        :class="roll.die === 20 ? 'text-amber-400' : roll.die === 1 ? 'text-red-500' : 'text-white'"
+                        x-text="roll.die"></span>
+                </div>
+                <span class="text-gray-500 text-lg mb-0.5">+</span>
+                <div class="text-center">
+                    <p class="text-[10px] text-gray-500 mb-0.5">bônus</p>
+                    <span class="text-2xl font-bold text-gray-300" x-text="roll.bonus"></span>
+                </div>
+                <span class="text-gray-500 text-lg mb-0.5">=</span>
+                <div class="text-center">
+                    <p class="text-[10px] text-gray-500 mb-0.5">total</p>
+                    <span class="text-3xl font-black text-amber-400" x-text="roll.total"></span>
+                </div>
+            </div>
+            <p class="text-[10px] text-gray-600 mt-2 text-right">clique para fechar</p>
+        </div>
+    </div>
 
 </div>
