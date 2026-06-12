@@ -217,6 +217,7 @@ function characterSheet(cid) {
                 <div class="flex items-center justify-between group">
                     <button type="button"
                         @click="rollDice('{{ $label }}', $wire.{{ $field }})"
+                        dusk="roll-{{ $field }}"
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
                     </button>
@@ -247,6 +248,7 @@ function characterSheet(cid) {
                 <div class="flex items-center justify-between">
                     <button type="button"
                         @click="rollDice('{{ $label }}', $wire.{{ $field }})"
+                        dusk="roll-{{ $field }}"
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
                     </button>
@@ -335,6 +337,7 @@ function characterSheet(cid) {
                 </span>
                 {{-- Histórico de rolagens --}}
                 <button type="button" @click="historyOpen = true"
+                    dusk="history-btn"
                     class="p-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white transition-colors relative"
                     title="Histórico de rolagens">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -362,7 +365,7 @@ function characterSheet(cid) {
     </main>
 
     {{-- Painel lateral de histórico --}}
-    <div x-show="historyOpen" class="fixed inset-0 z-40 flex justify-end" x-cloak>
+    <div x-show="historyOpen" id="roll-history-drawer" class="fixed inset-0 z-40 flex justify-end" x-cloak>
         {{-- Overlay --}}
         <div class="absolute inset-0 bg-black/50" @click="historyOpen = false"
             x-transition:enter="transition ease-out duration-200"
@@ -394,6 +397,7 @@ function characterSheet(cid) {
                         Limpar
                     </button>
                     <button type="button" @click="historyOpen = false"
+                        dusk="history-close-btn"
                         class="text-gray-400 hover:text-white transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -439,6 +443,7 @@ function characterSheet(cid) {
     {{-- Painel de rolagem — canto inferior direito --}}
     <div
         x-show="roll.visible"
+        id="roll-toast"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0 translate-y-4"
         x-transition:enter-end="opacity-100 translate-y-0"
