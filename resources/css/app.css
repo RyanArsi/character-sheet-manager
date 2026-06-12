@@ -10,3 +10,22 @@
     outline: none !important;
     box-shadow: none !important;
 }
+
+/* Scrollbar customizada para a sidebar */
+.sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: #374151;
+    border-radius: 9999px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: #4b5563;
+}

@@ -27,12 +27,12 @@ class CharacterSheet extends Component
     public int $chakra_current = 20;
     public int $chakra_max = 20;
 
-    public int $forca = 10;
-    public int $agilidade = 10;
-    public int $constituicao = 10;
-    public int $inteligencia = 10;
-    public int $sabedoria = 10;
-    public int $carisma = 10;
+    public int $forca = 0;
+    public int $agilidade = 0;
+    public int $constituicao = 0;
+    public int $inteligencia = 0;
+    public int $sabedoria = 0;
+    public int $carisma = 0;
 
     public int $ninjutsu = 0;
     public int $genjutsu = 0;

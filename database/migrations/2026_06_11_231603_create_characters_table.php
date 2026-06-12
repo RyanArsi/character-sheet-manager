@@ -22,12 +22,12 @@ return new class extends Migration
             $table->unsignedSmallInteger('chakra_current')->default(20);
             $table->unsignedSmallInteger('chakra_max')->default(20);
 
-            $table->tinyInteger('forca')->default(10);
-            $table->tinyInteger('agilidade')->default(10);
-            $table->tinyInteger('constituicao')->default(10);
-            $table->tinyInteger('inteligencia')->default(10);
-            $table->tinyInteger('sabedoria')->default(10);
-            $table->tinyInteger('carisma')->default(10);
+            $table->tinyInteger('forca')->default(0);
+            $table->tinyInteger('agilidade')->default(0);
+            $table->tinyInteger('constituicao')->default(0);
+            $table->tinyInteger('inteligencia')->default(0);
+            $table->tinyInteger('sabedoria')->default(0);
+            $table->tinyInteger('carisma')->default(0);
 
             $table->tinyInteger('ninjutsu')->default(0);
             $table->tinyInteger('genjutsu')->default(0);

@@ -89,7 +89,7 @@ function characterSheet(cid) {
 >
 
     {{-- ===== COLUNA ESQUERDA (fixa, rolável internamente) ===== --}}
-    <aside class="w-72 flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-700 overflow-y-auto">
+    <aside class="w-72 flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-700 overflow-y-auto sidebar-scroll">
 
         {{-- Avatar + Nome --}}
         <div class="flex flex-col items-center gap-2 px-4 pt-5 pb-4 border-b border-gray-700">
@@ -225,7 +225,7 @@ function characterSheet(cid) {
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
-                        <input type="number" wire:model.live="{{ $field }}" min="1" max="30"
+                        <input type="number" wire:model.live="{{ $field }}" min="0" max="30"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', 1)"
