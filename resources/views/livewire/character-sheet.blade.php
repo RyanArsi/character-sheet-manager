@@ -8,6 +8,11 @@ function characterSheet(cid) {
         savedMsg: false,
         restoredMsg: false,
 
+        // Travas de seção
+        lockVida: false,
+        lockAtributos: false,
+        lockEspec: false,
+
         // Rolagem de dados
         roll: { label: '', die: 0, bonus: 0, total: 0, visible: false, timer: null },
         rollHistory: [],
@@ -126,6 +131,23 @@ function characterSheet(cid) {
         {{-- Barras de Vida e Chakra --}}
         <div class="px-4 py-4 border-b border-gray-700 space-y-5">
 
+            {{-- Cabeçalho da seção com cadeado --}}
+            <div class="flex items-center justify-between -mb-2">
+                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Vida &amp; Chakra</span>
+                <button type="button" @click="lockVida = !lockVida"
+                    :title="lockVida ? 'Destravar' : 'Travar'"
+                    class="text-gray-600 hover:text-gray-300 transition-colors">
+                    <svg x-show="!lockVida" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                    </svg>
+                    <svg x-show="lockVida" class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </button>
+            </div>
+
             {{-- Vida --}}
             <div>
                 <div class="flex items-center justify-between mb-2">
@@ -135,10 +157,11 @@ function characterSheet(cid) {
                     <div class="flex items-center gap-1 text-xs text-gray-400">
                         <span>máx:</span>
                         <input type="number" wire:model.live="hp_max" min="1"
-                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-red-400 focus:ring-0 focus:outline-none">
+                            :disabled="lockVida"
+                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-red-400 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5" :class="lockVida ? 'pointer-events-none opacity-50' : ''">
                     <button type="button" wire:click="adjustHp(-5)"
                         class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">«</button>
                     <button type="button" wire:click="adjustHp(-1)"
@@ -151,6 +174,7 @@ function characterSheet(cid) {
                         ></div>
                         <div class="absolute inset-0 flex items-center justify-center gap-0.5">
                             <input type="number" wire:model.live="hp_current" min="0"
+                                :disabled="lockVida"
                                 class="bar-input w-12 bg-transparent text-center text-white text-sm font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
                             <span class="text-white/70 text-xs font-medium">/{{ $hp_max }}</span>
                         </div>
@@ -172,10 +196,11 @@ function characterSheet(cid) {
                     <div class="flex items-center gap-1 text-xs text-gray-400">
                         <span>máx:</span>
                         <input type="number" wire:model.live="chakra_max" min="1"
-                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-blue-400 focus:ring-0 focus:outline-none">
+                            :disabled="lockVida"
+                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-blue-400 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5" :class="lockVida ? 'pointer-events-none opacity-50' : ''">
                     <button type="button" wire:click="adjustChakra(-5)"
                         class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">«</button>
                     <button type="button" wire:click="adjustChakra(-1)"
@@ -188,6 +213,7 @@ function characterSheet(cid) {
                         ></div>
                         <div class="absolute inset-0 flex items-center justify-center gap-0.5">
                             <input type="number" wire:model.live="chakra_current" min="0"
+                                :disabled="lockVida"
                                 class="bar-input w-12 bg-transparent text-center text-white text-sm font-bold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none">
                             <span class="text-white/70 text-xs font-medium">/{{ $chakra_max }}</span>
                         </div>
@@ -204,7 +230,21 @@ function characterSheet(cid) {
 
         {{-- Atributos --}}
         <div class="px-4 py-4 border-b border-gray-700">
-            <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">Atributos</h3>
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest">Atributos</h3>
+                <button type="button" @click="lockAtributos = !lockAtributos"
+                    :title="lockAtributos ? 'Destravar' : 'Travar'"
+                    class="text-gray-600 hover:text-gray-300 transition-colors">
+                    <svg x-show="!lockAtributos" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                    </svg>
+                    <svg x-show="lockAtributos" class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </button>
+            </div>
             <div class="space-y-2">
                 @foreach([
                     ['forca',        'Força',        'text-orange-400'],
@@ -221,12 +261,13 @@ function characterSheet(cid) {
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
                     </button>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1" :class="lockAtributos ? 'pointer-events-none opacity-50' : ''">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
                         <input type="number" wire:model.live="{{ $field }}" min="0" max="30"
-                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
+                            :disabled="lockAtributos"
+                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', 1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
@@ -238,7 +279,21 @@ function characterSheet(cid) {
 
         {{-- Especializações --}}
         <div class="px-4 py-4 border-b border-gray-700">
-            <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">Especializações</h3>
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest">Especializações</h3>
+                <button type="button" @click="lockEspec = !lockEspec"
+                    :title="lockEspec ? 'Destravar' : 'Travar'"
+                    class="text-gray-600 hover:text-gray-300 transition-colors">
+                    <svg x-show="!lockEspec" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                    </svg>
+                    <svg x-show="lockEspec" class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </button>
+            </div>
             <div class="space-y-2">
                 @foreach([
                     ['ninjutsu', 'Ninjutsu', 'text-blue-400'],
@@ -252,12 +307,13 @@ function characterSheet(cid) {
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
                     </button>
-                    <div class="flex items-center gap-1">
+                    <div class="flex items-center gap-1" :class="lockEspec ? 'pointer-events-none opacity-50' : ''">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
                         <input type="number" wire:model.live="{{ $field }}" min="0"
-                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
+                            :disabled="lockEspec"
+                            class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', 1)"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
