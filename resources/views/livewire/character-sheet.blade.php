@@ -161,11 +161,13 @@ function characterSheet(cid) {
                             class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-red-400 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5" :class="lockVida ? 'pointer-events-none opacity-50' : ''">
+                <div class="flex items-center gap-1.5" :class="lockVida ? 'opacity-50' : ''">
                     <button type="button" wire:click="adjustHp(-5)"
-                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">«</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">«</button>
                     <button type="button" wire:click="adjustHp(-1)"
-                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">‹</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">‹</button>
 
                     <div class="relative flex-1 h-8 bg-gray-700 rounded-lg overflow-hidden">
                         <div
@@ -181,9 +183,11 @@ function characterSheet(cid) {
                     </div>
 
                     <button type="button" wire:click="adjustHp(1)"
-                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">›</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">›</button>
                     <button type="button" wire:click="adjustHp(5)"
-                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5">»</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">»</button>
                 </div>
             </div>
 
@@ -200,11 +204,13 @@ function characterSheet(cid) {
                             class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-gray-400 text-xs focus:border-blue-400 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                     </div>
                 </div>
-                <div class="flex items-center gap-1.5" :class="lockVida ? 'pointer-events-none opacity-50' : ''">
+                <div class="flex items-center gap-1.5" :class="lockVida ? 'opacity-50' : ''">
                     <button type="button" wire:click="adjustChakra(-5)"
-                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">«</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">«</button>
                     <button type="button" wire:click="adjustChakra(-1)"
-                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">‹</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">‹</button>
 
                     <div class="relative flex-1 h-8 bg-gray-700 rounded-lg overflow-hidden">
                         <div
@@ -220,9 +226,11 @@ function characterSheet(cid) {
                     </div>
 
                     <button type="button" wire:click="adjustChakra(1)"
-                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">›</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">›</button>
                     <button type="button" wire:click="adjustChakra(5)"
-                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5">»</button>
+                        :disabled="lockVida"
+                        class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">»</button>
                 </div>
             </div>
 
@@ -261,16 +269,18 @@ function characterSheet(cid) {
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
                     </button>
-                    <div class="flex items-center gap-1" :class="lockAtributos ? 'pointer-events-none opacity-50' : ''">
+                    <div class="flex items-center gap-1" :class="lockAtributos ? 'opacity-50' : ''">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
-                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
+                            :disabled="lockAtributos"
+                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none disabled:cursor-not-allowed">−</button>
                         <input type="number" wire:model.live="{{ $field }}" min="0" max="30"
                             :disabled="lockAtributos"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', 1)"
-                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
+                            :disabled="lockAtributos"
+                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none disabled:cursor-not-allowed">+</button>
                     </div>
                 </div>
                 @endforeach
@@ -307,16 +317,18 @@ function characterSheet(cid) {
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
                     </button>
-                    <div class="flex items-center gap-1" :class="lockEspec ? 'pointer-events-none opacity-50' : ''">
+                    <div class="flex items-center gap-1" :class="lockEspec ? 'opacity-50' : ''">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', -1)"
-                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
+                            :disabled="lockEspec"
+                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none disabled:cursor-not-allowed">−</button>
                         <input type="number" wire:model.live="{{ $field }}" min="0"
                             :disabled="lockEspec"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         <button type="button"
                             wire:click="adjustAttr('{{ $field }}', 1)"
-                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">+</button>
+                            :disabled="lockEspec"
+                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none disabled:cursor-not-allowed">+</button>
                     </div>
                 </div>
                 @endforeach
