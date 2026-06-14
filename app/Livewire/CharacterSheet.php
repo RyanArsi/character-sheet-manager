@@ -58,13 +58,14 @@ class CharacterSheet extends Component
 
         $this->skills = $character->skills()
             ->orderBy('id')
-            ->get(['id', 'name', 'attribute', 'value', 'trained'])
+            ->get(['id', 'name', 'attribute', 'value', 'trained', 'training_level'])
             ->map(fn ($s) => [
-                'id'        => $s->id,
-                'name'      => $s->name,
-                'attribute' => $s->attribute,
-                'value'     => $s->value,
-                'trained'   => $s->trained,
+                'id'             => $s->id,
+                'name'           => $s->name,
+                'attribute'      => $s->attribute,
+                'value'          => $s->value,
+                'trained'        => $s->trained,
+                'training_level' => $s->training_level,
             ])
             ->toArray();
     }
@@ -92,8 +93,9 @@ class CharacterSheet extends Component
             foreach ($data['skills'] as $incoming) {
                 foreach ($this->skills as $i => $skill) {
                     if ($skill['id'] === $incoming['id']) {
-                        $this->skills[$i]['value']   = $incoming['value'];
-                        $this->skills[$i]['trained']  = $incoming['trained'];
+                        $this->skills[$i]['value']          = $incoming['value'];
+                        $this->skills[$i]['trained']        = $incoming['trained'];
+                        $this->skills[$i]['training_level'] = $incoming['training_level'] ?? 0;
                         break;
                     }
                 }
@@ -129,7 +131,11 @@ class CharacterSheet extends Component
         foreach ($this->skills as $skill) {
             $character->skills()
                 ->where('id', $skill['id'])
-                ->update(['value' => $skill['value'], 'trained' => $skill['trained']]);
+                ->update([
+                    'value'          => $skill['value'],
+                    'trained'        => $skill['trained'],
+                    'training_level' => $skill['training_level'] ?? 0,
+                ]);
         }
 
         $this->dispatch('saved');
@@ -145,6 +151,15 @@ class CharacterSheet extends Component
         }
 
         $this->$field = max(0, $this->$field + $delta);
+    }
+
+    public function cycleTraining(int $index): void
+    {
+        if (! isset($this->skills[$index])) return;
+
+        $current = $this->skills[$index]['training_level'] ?? 0;
+        $this->skills[$index]['training_level'] = ($current + 1) % 6;
+        $this->skills[$index]['trained'] = $this->skills[$index]['training_level'] > 0;
     }
 
     public function adjustHp(int $delta): void

@@ -340,16 +340,30 @@ function characterSheet(cid) {
             <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">Perícias</h3>
             <div class="space-y-1.5">
                 @foreach($skills as $i => $skill)
+                @php
+                    $lvl = $skill['training_level'] ?? 0;
+                    $bonus = $lvl * 2;
+                @endphp
                 <div class="flex items-center gap-1.5">
-                    {{-- Checkbox treinado --}}
-                    <input type="checkbox"
-                        wire:model.live="skills.{{ $i }}.trained"
-                        class="w-3.5 h-3.5 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-0 focus:ring-offset-0 cursor-pointer flex-shrink-0">
+                    {{-- Botão de treinamento ciclável --}}
+                    <button type="button"
+                        wire:click="cycleTraining({{ $i }})"
+                        title="{{ $lvl === 0 ? 'Sem treinamento' : '+'.($lvl*2) }}"
+                        @class([
+                            'w-5 h-5 rounded border flex items-center justify-center text-[10px] font-black flex-shrink-0 transition-all duration-200 select-none',
+                            'border-gray-600 bg-gray-800 text-transparent'        => $lvl === 0,
+                            'border-green-500 bg-green-900/40 text-green-400'     => $lvl === 1,
+                            'border-blue-500 bg-blue-900/40 text-blue-400'        => $lvl === 2,
+                            'border-yellow-400 bg-yellow-900/40 text-yellow-300'  => $lvl === 3,
+                            'border-orange-400 bg-orange-900/40 text-orange-300 training-glow-orange' => $lvl === 4,
+                            'border-red-500 bg-red-900/40 text-red-400 training-glow-red'             => $lvl === 5,
+                        ])
+                    >{{ $lvl > 0 ? '+'.$bonus : '' }}</button>
 
                     {{-- Nome clicável --}}
                     <button type="button"
-                        @click="rollDice('{{ $skill['name'] }}', $wire.skills[{{ $i }}].value)"
-                        class="flex-1 text-xs text-gray-300 leading-tight text-left hover:text-white transition-colors cursor-pointer {{ $skill['trained'] ? 'font-semibold text-white' : '' }}">
+                        @click="rollDice('{{ $skill['name'] }}', ($wire.skills[{{ $i }}].value || 0) + {{ $bonus }})"
+                        class="flex-1 text-xs leading-tight text-left hover:text-white transition-colors cursor-pointer {{ $lvl > 0 ? 'font-semibold text-white' : 'text-gray-300' }}">
                         {{ $skill['name'] }}
                         <span class="text-gray-600 text-[10px]">({{ $skill['attribute'] }})</span>
                     </button>

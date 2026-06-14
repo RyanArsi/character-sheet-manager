@@ -29,3 +29,19 @@
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
     background-color: #4b5563;
 }
+
+/* Efeito de brilho para perícias com treinamento alto */
+@keyframes glow-orange {
+    0%, 100% { box-shadow: 0 0 4px #fb923c; }
+    50%       { box-shadow: 0 0 10px #fb923c, 0 0 20px #fb923c55; }
+}
+@keyframes glow-red {
+    0%, 100% { box-shadow: 0 0 5px #ef4444; }
+    50%       { box-shadow: 0 0 14px #ef4444, 0 0 28px #ef444455; }
+}
+.training-glow-orange {
+    animation: glow-orange 1.4s ease-in-out infinite;
+}
+.training-glow-red {
+    animation: glow-red 1.2s ease-in-out infinite;
+}
