@@ -264,7 +264,7 @@ function characterSheet(cid) {
                 ] as [$field, $label, $color])
                 <div class="flex items-center justify-between group">
                     <button type="button"
-                        @click="rollDice('{{ $label }}', $wire.{{ $field }})"
+                        @click="rollDice('{{ $label }}', parseInt($wire.{{ $field }}))"
                         dusk="roll-{{ $field }}"
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
@@ -312,7 +312,7 @@ function characterSheet(cid) {
                 ] as [$field, $label, $color])
                 <div class="flex items-center justify-between">
                     <button type="button"
-                        @click="rollDice('{{ $label }}', $wire.{{ $field }})"
+                        @click="rollDice('{{ $label }}', parseInt($wire.{{ $field }}))"
                         dusk="roll-{{ $field }}"
                         class="text-xs {{ $color }} font-medium hover:underline hover:brightness-125 cursor-pointer text-left">
                         {{ $label }}
@@ -362,7 +362,7 @@ function characterSheet(cid) {
 
                     {{-- Nome clicável --}}
                     <button type="button"
-                        @click="rollDice('{{ $skill['name'] }}', ($wire.skills[{{ $i }}].value || 0) + {{ $bonus }})"
+                        @click="rollDice('{{ $skill['name'] }}', parseInt($wire.skills[{{ $i }}].value) + {{ $bonus }})"
                         class="flex-1 text-xs leading-tight text-left hover:text-white transition-colors cursor-pointer {{ $lvl > 0 ? 'font-semibold text-white' : 'text-gray-300' }}">
                         {{ $skill['name'] }}
                         <span class="text-gray-600 text-[10px]">({{ $skill['attribute'] }})</span>
