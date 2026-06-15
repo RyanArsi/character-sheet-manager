@@ -12,6 +12,7 @@ function characterSheet(cid) {
         lockVida: false,
         lockAtributos: false,
         lockEspec: false,
+        lockPericias: false,
 
         // Rolagem de dados
         roll: { label: '', die: 0, bonus: 0, total: 0, visible: false, timer: null },
@@ -337,7 +338,21 @@ function characterSheet(cid) {
 
         {{-- Perícias --}}
         <div class="px-4 py-4">
-            <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-3">Perícias</h3>
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest">Perícias</h3>
+                <button type="button" @click="lockPericias = !lockPericias"
+                    :title="lockPericias ? 'Destravar' : 'Travar'"
+                    class="text-gray-600 hover:text-gray-300 transition-colors">
+                    <svg x-show="!lockPericias" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                    </svg>
+                    <svg x-show="lockPericias" class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </button>
+            </div>
             <div class="space-y-1.5">
                 @foreach($skills as $i => $skill)
                 @php
@@ -348,9 +363,10 @@ function characterSheet(cid) {
                     {{-- Botão de treinamento ciclável --}}
                     <button type="button"
                         wire:click="cycleTraining({{ $i }})"
+                        :disabled="lockPericias"
                         title="{{ $lvl === 0 ? 'Sem treinamento' : '+'.($lvl*2) }}"
                         @class([
-                            'w-5 h-5 rounded border flex items-center justify-center text-[10px] font-black flex-shrink-0 transition-all duration-200 select-none',
+                            'w-5 h-5 rounded border flex items-center justify-center text-[10px] font-black flex-shrink-0 transition-all duration-200 select-none disabled:cursor-not-allowed',
                             'border-gray-600 bg-gray-800 text-transparent'        => $lvl === 0,
                             'border-green-500 bg-green-900/40 text-green-400'     => $lvl === 1,
                             'border-blue-500 bg-blue-900/40 text-blue-400'        => $lvl === 2,
@@ -371,7 +387,8 @@ function characterSheet(cid) {
                     {{-- Valor --}}
                     <input type="number"
                         wire:model.live="skills.{{ $i }}.value"
-                        class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-xs font-bold focus:border-amber-500 focus:ring-0 focus:outline-none">
+                        :disabled="lockPericias"
+                        class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-xs font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                 </div>
                 @endforeach
             </div>
