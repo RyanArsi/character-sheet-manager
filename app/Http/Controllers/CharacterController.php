@@ -26,7 +26,7 @@ class CharacterController extends Controller
 
     public function autosave(Request $request, Character $character): Response
     {
-        abort_unless(auth()->id() === $character->user_id, 403);
+        abort_unless($character->canBeManagedBy(auth()->user()), 403);
 
         $data = $request->json()->all();
 

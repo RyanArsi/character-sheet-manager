@@ -45,7 +45,7 @@ class CharacterSheet extends Component
 
     public function mount(Character $character): void
     {
-        abort_unless(auth()->id() === $character->user_id, 403);
+        abort_unless($character->canBeManagedBy(auth()->user()), 403);
 
         $this->characterId = $character->id;
         $this->fill($character->only([

@@ -13,7 +13,11 @@ return new class extends Migration
     {
         Schema::create('campaign_characters', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('campaign_id')->constrained('campaigns')->cascadeOnDelete();
+            $table->foreignId('character_id')->constrained('characters')->cascadeOnDelete();
             $table->timestamps();
+
+            $table->unique(['campaign_id', 'character_id']);
         });
     }
 

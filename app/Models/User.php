@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -26,6 +27,24 @@ class User extends Authenticatable
     public function characters(): HasMany
     {
         return $this->hasMany(Character::class)->orderByDesc('updated_at');
+    }
+
+    /**
+     * Campanhas das quais o usuário é mestre (dono).
+     */
+    public function ownedCampaigns(): HasMany
+    {
+        return $this->hasMany(Campaign::class, 'owner_id')->orderByDesc('updated_at');
+    }
+
+    /**
+     * Campanhas das quais o usuário participa (incluindo as que é dono).
+     */
+    public function campaigns(): BelongsToMany
+    {
+        return $this->belongsToMany(Campaign::class)
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     protected function casts(): array
