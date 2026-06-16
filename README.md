@@ -1,58 +1,101 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Naruto RPG
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistema de fichas de RPG ambientado no universo de Naruto, construído em Laravel.
+Permite criar e editar fichas de personagem (com autosave), organizar campanhas
+com convite por link, e gerenciar os participantes — incluindo gestão de fichas
+pelo mestre e banimento de membros.
 
-## About Laravel
+## Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **PHP** 8.3+ / **Laravel** 13
+- **Livewire** 4 (ficha de personagem reativa, com autosave)
+- **Breeze** (autenticação)
+- **Tailwind CSS** 3 + **Alpine.js** + **Vite**
+- **MariaDB** (via [ddev](https://ddev.com))
+- **Laravel Dusk** (testes de browser, em banco SQLite separado)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Pré-requisitos
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- [ddev](https://ddev.com/get-started/) (Docker)
 
-## Learning Laravel
+> O ddev já provê PHP, MariaDB, Node e Composer dentro do container, então não é
+> necessário instalá-los na máquina. Todos os comandos abaixo podem ser rodados
+> com o prefixo `ddev` (ex.: `ddev composer`, `ddev artisan`, `ddev npm`).
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Como rodar
 
 ```bash
-composer require laravel/boost --dev
+# 1. Subir os containers
+ddev start
 
-php artisan boost:install
+# 2. Instalar dependências PHP
+ddev composer install
+
+# 3. Criar o .env e gerar a APP_KEY
+cp .env.example .env
+ddev artisan key:generate
+
+# 4. Rodar as migrations
+ddev artisan migrate
+
+# 5. Instalar dependências JS e compilar os assets
+ddev npm install
+ddev npm run build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Depois disso, abra a aplicação:
 
-## Contributing
+```bash
+ddev launch
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+A URL local é exibida por `ddev describe` (normalmente `https://naruto-rpg.ddev.site`).
 
-## Code of Conduct
+### Desenvolvimento (assets em watch)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Para desenvolver com recompilação automática do front-end, rode o Vite em modo dev:
 
-## Security Vulnerabilities
+```bash
+ddev npm run dev
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Banco de dados
 
-## License
+- O ambiente usa o **MariaDB do container `db` do ddev**; os dados ficam no volume
+  do ddev e **persistem** entre reinícios. As credenciais já estão no `.env.example`
+  (`DB_HOST=db`, `DB_DATABASE=db`, `DB_USERNAME=db`, `DB_PASSWORD=db`).
+- Para recriar o schema do zero: `ddev artisan migrate:fresh`.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+> **Atenção:** não há seeders que criem usuários automaticamente. Cadastre sua
+> conta pela própria tela de registro da aplicação.
+
+## Testes
+
+Testes unitários e de feature (PHPUnit):
+
+```bash
+ddev artisan test
+```
+
+Testes de browser (Dusk) — rodam em um **banco SQLite separado**, configurado em
+`.env.dusk.local`, para não apagar os dados de desenvolvimento:
+
+```bash
+ddev artisan dusk
+```
+
+## Estilo de código
+
+O projeto usa [Laravel Pint](https://laravel.com/docs/pint):
+
+```bash
+ddev composer exec pint
+```
+
+## Principais funcionalidades
+
+- **Fichas de personagem** — criação e edição reativa (Livewire) com autosave;
+  seção de Perícias com trava (cadeado) para evitar alterações acidentais.
+- **Campanhas** — criação, convite por link/token (com regeneração), e visualização
+  dos participantes e suas fichas.
+- **Gestão pelo mestre** — remoção de fichas da campanha e banimento de membros.
