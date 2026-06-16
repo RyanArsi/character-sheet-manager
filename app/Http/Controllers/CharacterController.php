@@ -32,6 +32,8 @@ class CharacterController extends Controller
 
         $character->update(array_filter([
             'name'           => $data['name']           ?? null,
+            'cla'            => $data['cla']            ?? null,
+            'level'          => $data['level']          ?? null,
             'hp_current'     => $data['hp_current']     ?? null,
             'hp_max'         => $data['hp_max']         ?? null,
             'chakra_current' => $data['chakra_current'] ?? null,

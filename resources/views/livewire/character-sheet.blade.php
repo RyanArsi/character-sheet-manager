@@ -19,6 +19,9 @@ function characterSheet(cid) {
         rollHistory: [],
         historyOpen: false,
 
+        // Alerta de subida de nível
+        levelAlert: { visible: false, hp: 0, chakra: '' },
+
         rollDice(label, bonus) {
             const die = Math.floor(Math.random() * 20) + 1;
             bonus = parseInt(bonus) || 0;
@@ -37,6 +40,10 @@ function characterSheet(cid) {
         },
 
         init() {
+            this.$wire.on('level-up', ({ hp, chakra }) => {
+                this.levelAlert = { visible: true, hp, chakra };
+            });
+
             this.$wire.on('sync-storage', (state) => {
                 localStorage.setItem('char_' + this.cid, JSON.stringify(state));
                 this.dirty = true;
@@ -126,6 +133,30 @@ function characterSheet(cid) {
                 placeholder="Nome do Personagem"
                 class="w-full bg-transparent text-center text-white font-semibold text-sm border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 focus:outline-none pb-1 placeholder-gray-500"
             >
+
+            {{-- Clã --}}
+            <input
+                type="text"
+                wire:model.live="cla"
+                placeholder="Clã"
+                class="w-full bg-transparent text-center text-gray-300 text-xs border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 focus:outline-none pb-1 placeholder-gray-500"
+            >
+
+            {{-- Nível --}}
+            <div class="flex items-center justify-center gap-2 mt-1">
+                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nível</span>
+                <button type="button" wire:click="levelDown"
+                    class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
+                <input
+                    type="number"
+                    min="1"
+                    wire:model.live="level"
+                    class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                >
+                <button type="button" wire:click="levelUp"
+                    title="Subir de nível"
+                    class="w-5 h-5 flex items-center justify-center rounded bg-amber-600 hover:bg-amber-500 text-white text-xs leading-none">+</button>
+            </div>
 
         </div>
 
@@ -535,6 +566,52 @@ function characterSheet(cid) {
                         <span class="text-[10px] text-gray-600 flex-shrink-0" x-text="r.time"></span>
                     </div>
                 </template>
+            </div>
+        </div>
+    </div>
+
+    {{-- Alerta de subida de nível --}}
+    <div x-show="levelAlert.visible" id="level-up-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" x-cloak>
+        {{-- Overlay --}}
+        <div class="absolute inset-0 bg-black/60" @click="levelAlert.visible = false"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0"
+            x-transition:enter-end="opacity-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0">
+        </div>
+
+        {{-- Caixa --}}
+        <div class="relative w-[30%] h-[50%] flex flex-col bg-gray-800 border border-amber-500/40 rounded-xl shadow-2xl px-6 py-5"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95">
+
+            <h2 class="text-base font-bold text-amber-400 flex items-center gap-2">
+                ⬆ Subiu de nível!
+            </h2>
+
+            <div class="flex-1 flex flex-col justify-center space-y-2 text-sm text-gray-200">
+                <p class="flex items-center gap-2">
+                    <span>❤</span>
+                    <span>Aumento na vida: <span class="font-bold text-red-400" x-text="levelAlert.hp"></span></span>
+                </p>
+                <p class="flex items-center gap-2">
+                    <span>✦</span>
+                    <span>Aumento no chakra: <span class="font-bold text-blue-400" x-text="levelAlert.chakra"></span></span>
+                </p>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="button" @click="levelAlert.visible = false"
+                    dusk="level-up-close"
+                    class="px-3 py-1.5 text-xs font-medium rounded bg-amber-600 hover:bg-amber-500 text-white transition-colors">
+                    Entendi
+                </button>
             </div>
         </div>
     </div>

@@ -19,8 +19,15 @@ class CharacterSheet extends Component
 
     #[Rule('required|string|max:100')]
     public string $name = '';
+
+    #[Rule('nullable|string|max:100')]
+    public ?string $cla = '';
+
     public int $level = 1;
     public int $xp = 0;
+
+    // Guarda o nível anterior para detectar quando o personagem sobe de nível
+    public int $previousLevel = 1;
 
     public int $hp_current = 20;
     public int $hp_max = 20;
@@ -49,11 +56,12 @@ class CharacterSheet extends Component
 
         $this->characterId = $character->id;
         $this->fill($character->only([
-            'name', 'level', 'xp',
+            'name', 'cla', 'level', 'xp',
             'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
             'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
             'ninjutsu', 'genjutsu', 'taijutsu',
         ]));
+        $this->previousLevel = $this->level;
         $this->avatarPath = $character->avatar;
 
         $this->skills = $character->skills()
@@ -79,7 +87,7 @@ class CharacterSheet extends Component
     // Restaura estado vindo do localStorage (chamado pelo Alpine no init)
     public function restoreFromSession(array $data): void
     {
-        $fields = ['name', 'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
+        $fields = ['name', 'cla', 'level', 'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
                    'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
                    'ninjutsu', 'genjutsu', 'taijutsu'];
 
@@ -88,6 +96,9 @@ class CharacterSheet extends Component
                 $this->$field = $data[$field];
             }
         }
+
+        // Sincroniza o nível de referência para não disparar o alerta indevidamente
+        $this->previousLevel = $this->level;
 
         if (! empty($data['skills'])) {
             foreach ($data['skills'] as $incoming) {
@@ -103,6 +114,34 @@ class CharacterSheet extends Component
         }
     }
 
+    // Detecta subida de nível e dispara o alerta com os ganhos
+    public function updatedLevel($value): void
+    {
+        $value = max(1, (int) $value);
+        $this->level = $value;
+
+        if ($value > $this->previousLevel) {
+            $this->dispatch('level-up',
+                hp: $this->constituicao + 4,
+                chakra: 'd6 + sabedoria',
+            );
+        }
+
+        $this->previousLevel = $value;
+    }
+
+    public function levelUp(): void
+    {
+        $this->level++;
+        $this->updatedLevel($this->level);
+    }
+
+    public function levelDown(): void
+    {
+        $this->level = max(1, $this->level - 1);
+        $this->previousLevel = $this->level;
+    }
+
     public function save(): void
     {
         $this->validate();
@@ -111,6 +150,7 @@ class CharacterSheet extends Component
 
         $character->update([
             'name'           => $this->name,
+            'cla'            => $this->cla,
             'level'          => $this->level,
             'xp'             => $this->xp,
             'hp_current'     => $this->hp_current,
@@ -187,6 +227,8 @@ class CharacterSheet extends Component
     {
         return [
             'name'           => $this->name,
+            'cla'            => $this->cla,
+            'level'          => $this->level,
             'hp_current'     => $this->hp_current,
             'hp_max'         => $this->hp_max,
             'chakra_current' => $this->chakra_current,

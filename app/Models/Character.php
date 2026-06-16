@@ -13,7 +13,7 @@ class Character extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'name', 'race', 'village', 'level', 'xp',
+        'user_id', 'name', 'race', 'village', 'cla', 'level', 'xp',
         'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
         'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
         'ninjutsu', 'genjutsu', 'taijutsu',
