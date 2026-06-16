@@ -48,6 +48,13 @@ class Character extends Model
         return $this->hasMany(CharacterSkill::class);
     }
 
+    /** Jutsus atribuídos a esta ficha */
+    public function jutsus(): BelongsToMany
+    {
+        return $this->belongsToMany(Jutsu::class, 'character_jutsu')
+            ->withTimestamps();
+    }
+
     public function campaigns(): BelongsToMany
     {
         return $this->belongsToMany(Campaign::class, 'campaign_characters')

@@ -30,6 +30,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Jutsus criados pelo usuário (biblioteca pessoal).
+     */
+    public function jutsus(): HasMany
+    {
+        return $this->hasMany(Jutsu::class)->orderByDesc('updated_at');
+    }
+
+    /**
      * Campanhas das quais o usuário é mestre (dono).
      */
     public function ownedCampaigns(): HasMany

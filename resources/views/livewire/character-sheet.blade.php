@@ -22,6 +22,9 @@ function characterSheet(cid) {
         // Alerta de subida de nível
         levelAlert: { visible: false, hp: 0, chakra: '' },
 
+        // Aba ativa da coluna direita
+        activeTab: 'equipamentos',
+
         rollDice(label, bonus) {
             const die = Math.floor(Math.random() * 20) + 1;
             bonus = parseInt(bonus) || 0;
@@ -429,8 +432,8 @@ function characterSheet(cid) {
         <div class="h-4"></div>
     </aside>
 
-    {{-- ===== COLUNA DIREITA (área principal, a ser definida) ===== --}}
-    <main class="flex-1 overflow-y-auto flex flex-col">
+    {{-- ===== COLUNA DO MEIO (controle de turnos, condições, etc) ===== --}}
+    <main class="flex-1 min-w-0 overflow-hidden flex flex-col">
 
         {{-- Barra superior com status de save --}}
         <div class="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-700 flex-shrink-0">
@@ -487,12 +490,63 @@ function characterSheet(cid) {
             </div>
         </div>
 
-        {{-- Conteúdo direito (a ser construído) --}}
-        <div class="flex-1 flex items-center justify-center text-gray-700 text-sm">
-            Área principal — em construção
+        {{-- Miolo central — controle de turnos, condições, etc --}}
+        <div class="flex-1 overflow-y-auto flex items-center justify-center text-gray-700 text-sm">
+            Controle de turnos &amp; condições — em construção
         </div>
 
     </main>
+
+    {{-- ===== COLUNA DIREITA (abas: equipamentos, talentos, jutsus, notas) ===== --}}
+    <aside class="w-[28rem] flex-shrink-0 flex flex-col bg-gray-800 border-l border-gray-700 overflow-hidden">
+
+        {{-- Abas (guias estilo navegador) --}}
+        <div class="flex items-end gap-1 px-4 pt-2 bg-gray-900 border-b border-gray-700 flex-shrink-0">
+            @foreach([
+                ['equipamentos', 'Equipamentos'],
+                ['talentos',     'Talentos'],
+                ['jutsus',       'Jutsus'],
+                ['notas',        'Notas'],
+            ] as [$tab, $label])
+            <button type="button"
+                @click="activeTab = '{{ $tab }}'"
+                dusk="tab-{{ $tab }}"
+                :class="activeTab === '{{ $tab }}'
+                    ? 'bg-gray-800 text-amber-400 border-gray-700 border-b-gray-800'
+                    : 'bg-gray-900 text-gray-500 hover:text-gray-300 border-transparent'"
+                class="px-4 py-2 text-xs font-medium rounded-t-lg border border-b-0 -mb-px transition-colors">
+                {{ $label }}
+            </button>
+            @endforeach
+        </div>
+
+        {{-- Conteúdo da aba ativa --}}
+        <div class="flex-1 overflow-y-auto p-6">
+            {{-- Equipamentos --}}
+            <div x-show="activeTab === 'equipamentos'" dusk="panel-equipamentos">
+                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Equipamentos</h2>
+                <p class="text-gray-600 text-sm">Conteúdo em construção.</p>
+            </div>
+
+            {{-- Talentos --}}
+            <div x-show="activeTab === 'talentos'" dusk="panel-talentos" x-cloak>
+                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Talentos</h2>
+                <p class="text-gray-600 text-sm">Conteúdo em construção.</p>
+            </div>
+
+            {{-- Jutsus --}}
+            <div x-show="activeTab === 'jutsus'" dusk="panel-jutsus" x-cloak>
+                <livewire:jutsu-panel :character-id="$characterId" :key="'jutsu-panel-'.$characterId" />
+            </div>
+
+            {{-- Notas --}}
+            <div x-show="activeTab === 'notas'" dusk="panel-notas" x-cloak>
+                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Notas</h2>
+                <p class="text-gray-600 text-sm">Conteúdo em construção.</p>
+            </div>
+        </div>
+
+    </aside>
 
     {{-- Painel lateral de histórico --}}
     <div x-show="historyOpen" id="roll-history-drawer" class="fixed inset-0 z-40 flex justify-end" x-cloak>
