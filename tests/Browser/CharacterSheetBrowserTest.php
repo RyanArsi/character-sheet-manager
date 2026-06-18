@@ -316,9 +316,10 @@ class CharacterSheetBrowserTest extends DuskTestCase
         $this->browse(function (Browser $browser) use ($user, $character, $equipment) {
             $this->visitSheetClean($browser, $user, $character)
                 ->click('@tab-equipamentos')
-                ->waitFor('@equipment-location-'.$equipment->id)
                 ->assertSeeIn('@equipment-used-mochila', '2')
                 ->assertSeeIn('@equipment-used-pergaminhos', '0')
+                ->click('@equipment-details-'.$equipment->id) // expande para revelar o seletor de local
+                ->waitFor('@equipment-location-'.$equipment->id)
                 ->select('@equipment-location-'.$equipment->id, 'pergaminhos')
                 ->waitForTextIn('@equipment-used-pergaminhos', '2')
                 ->assertSeeIn('@equipment-used-mochila', '0');
