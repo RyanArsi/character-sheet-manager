@@ -3,6 +3,7 @@
 namespace Tests\Browser;
 
 use App\Models\Character;
+use App\Models\Equipment;
 use App\Models\Jutsu;
 use App\Models\Talent;
 use App\Models\User;
@@ -279,6 +280,48 @@ class CharacterSheetBrowserTest extends DuskTestCase
                 ->waitFor('@jutsu-toast')
                 ->assertSeeIn('@jutsu-toast', '13')
                 ->assertSeeIn('@jutsu-toast', 'chakra');
+        });
+    }
+
+    public function test_usar_equipamento_rola_teste_no_toast(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter(); // forca = 12
+        $equipment = Equipment::create([
+            'user_id'   => $character->user_id,
+            'name'      => 'Arco Longo',
+            'test_dice' => 'd1+[forca]', // 1 + 12 = 13
+        ]);
+        $character->equipments()->attach($equipment->id);
+
+        $this->browse(function (Browser $browser) use ($user, $character, $equipment) {
+            $this->visitSheetClean($browser, $user, $character)
+                ->click('@tab-equipamentos')
+                ->waitFor('@equipment-use-'.$equipment->id)
+                ->click('@equipment-use-'.$equipment->id)
+                ->waitFor('@jutsu-toast')
+                ->assertSeeIn('@jutsu-toast', '13');
+        });
+    }
+
+    public function test_mover_equipamento_entre_locais_atualiza_espaco(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter();
+        $equipment = Equipment::create([
+            'user_id' => $character->user_id,
+            'name'    => 'Tenda',
+            'space'   => 2,
+        ]);
+        $character->equipments()->attach($equipment->id); // mochila por padrão
+
+        $this->browse(function (Browser $browser) use ($user, $character, $equipment) {
+            $this->visitSheetClean($browser, $user, $character)
+                ->click('@tab-equipamentos')
+                ->waitFor('@equipment-location-'.$equipment->id)
+                ->assertSeeIn('@equipment-used-mochila', '2')
+                ->assertSeeIn('@equipment-used-pergaminhos', '0')
+                ->select('@equipment-location-'.$equipment->id, 'pergaminhos')
+                ->waitForTextIn('@equipment-used-pergaminhos', '2')
+                ->assertSeeIn('@equipment-used-mochila', '0');
         });
     }
 }

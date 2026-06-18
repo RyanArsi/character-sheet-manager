@@ -1,0 +1,115 @@
+{{--
+    Card de equipamento reutilizável.
+    $equipment : modelo Equipment (com user carregado; pivot.location quando atribuído)
+    $mode      : 'assigned' (na ficha) | 'available' (na biblioteca, fora da ficha) | 'in-sheet' (na biblioteca, já na ficha)
+    $authId    : id do usuário logado (para mostrar editar só ao criador)
+    $locations : locais de carga possíveis (para o seletor)
+--}}
+@php
+    $equipmentPayload = [
+        'name'   => $equipment->name,
+        'test'   => $equipment->test_dice,
+        'damage' => $equipment->damage_dice,
+        'chakra' => null,
+        'media'  => $equipment->media ? Storage::url($equipment->media) : null,
+        'volume' => $equipment->volume ?? 100,
+    ];
+    $locationLabels = ['mochila' => 'Mochila', 'carregando' => 'Carregando', 'pergaminhos' => 'Pergaminhos'];
+@endphp
+<div class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="equipment-card-{{ $equipment->id }}">
+    <div class="flex gap-3">
+        {{-- Imagem --}}
+        <div class="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
+            @if($equipment->image)
+                <img src="{{ Storage::url($equipment->image) }}" class="w-full h-full object-cover">
+            @else
+                <span class="text-gray-700 text-xl">🎒</span>
+            @endif
+        </div>
+
+        <div class="flex-1 min-w-0">
+            {{-- Tags (em cima) --}}
+            @if(!empty($equipment->tags))
+                <div class="flex flex-wrap gap-1 mb-1">
+                    @foreach($equipment->tags as $tag)
+                        <button type="button" wire:click="openTag('{{ $tag }}')"
+                            title="Ver significado"
+                            class="px-1.5 py-0.5 text-[9px] rounded-full bg-gray-800 border border-gray-600 text-gray-300 hover:border-amber-400 hover:text-amber-300 transition-colors">{{ $tag }}</button>
+                    @endforeach
+                </div>
+            @endif
+
+            {{-- Nome + ações --}}
+            <div class="flex items-start justify-between gap-2">
+                @if($mode === 'assigned')
+                    <button type="button" @click="$dispatch('use-jutsu', @js($equipmentPayload))"
+                        dusk="equipment-use-{{ $equipment->id }}"
+                        title="Usar equipamento (rola dados, toca som)"
+                        class="text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1">
+                        {{ $equipment->name }}
+                        @if($equipment->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
+                    </button>
+                @else
+                    <h3 class="text-sm font-semibold text-white leading-tight flex items-center gap-1">
+                        {{ $equipment->name }}
+                        @if($equipment->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
+                    </h3>
+                @endif
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    @if($equipment->user_id === $authId)
+                        <button type="button" wire:click="startEdit({{ $equipment->id }})"
+                            title="Editar" class="text-gray-500 hover:text-amber-400 text-xs">✎</button>
+                    @endif
+
+                    @if($mode === 'assigned' || $mode === 'in-sheet')
+                        <button type="button" wire:click="unassign({{ $equipment->id }})"
+                            title="Remover da ficha"
+                            class="text-gray-500 hover:text-red-400 text-xs">✕</button>
+                    @endif
+
+                    @if($mode === 'available')
+                        <button type="button" wire:click="assign({{ $equipment->id }})"
+                            dusk="equipment-assign-{{ $equipment->id }}"
+                            class="px-2 py-0.5 text-[10px] font-medium rounded bg-amber-600 hover:bg-amber-500 text-white">+ Ficha</button>
+                    @endif
+
+                    @if($mode === 'in-sheet')
+                        <span class="text-[9px] text-green-400 font-medium">✓ na ficha</span>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Atributos curtos --}}
+            <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5 text-[11px] text-gray-400">
+                @if(!is_null($equipment->space))<div><span class="text-gray-600">Espaço:</span> {{ $equipment->space }}</div>@endif
+                @if($equipment->test_dice)<div><span class="text-gray-600">Teste:</span> <span class="font-mono text-gray-300">{{ $equipment->test_dice }}</span></div>@endif
+                @if($equipment->damage_dice)<div><span class="text-gray-600">Dano:</span> <span class="font-mono text-gray-300">{{ $equipment->damage_dice }}</span></div>@endif
+            </div>
+
+            {{-- Seletor de local de carga (somente na ficha) --}}
+            @if($mode === 'assigned')
+                <div class="flex items-center gap-1.5 mt-2">
+                    <span class="text-[10px] text-gray-600 uppercase tracking-widest">Local</span>
+                    <select wire:change="setLocation({{ $equipment->id }}, $event.target.value)"
+                        dusk="equipment-location-{{ $equipment->id }}"
+                        class="bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-[11px] text-gray-200 focus:border-amber-500 focus:ring-0 focus:outline-none">
+                        @foreach($locations as $loc)
+                            <option value="{{ $loc }}" @selected(($equipment->pivot->location ?? 'mochila') === $loc)>{{ $locationLabels[$loc] ?? $loc }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- Descrição e infos --}}
+    @if($equipment->description)
+        <p class="text-[11px] text-gray-300 mt-2 whitespace-pre-line">{{ $equipment->description }}</p>
+    @endif
+    @if($equipment->infos)
+        <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $equipment->infos }}</p>
+    @endif
+
+    {{-- Autor --}}
+    <p class="text-[9px] text-gray-600 mt-2 text-right">por {{ $equipment->user->name ?? '—' }}</p>
+</div>

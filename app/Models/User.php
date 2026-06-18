@@ -46,6 +46,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Equipamentos criados pelo usuário (biblioteca pessoal).
+     */
+    public function equipments(): HasMany
+    {
+        return $this->hasMany(Equipment::class)->orderByDesc('updated_at');
+    }
+
+    /**
      * Campanhas das quais o usuário é mestre (dono).
      */
     public function ownedCampaigns(): HasMany

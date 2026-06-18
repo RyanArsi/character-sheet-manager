@@ -17,6 +17,7 @@ class Character extends Model
         'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
         'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
         'ninjutsu', 'genjutsu', 'taijutsu',
+        'space_mochila', 'space_carregando', 'space_pergaminhos',
         'notes', 'avatar',
     ];
 
@@ -36,6 +37,9 @@ class Character extends Model
         'ninjutsu'       => 'integer',
         'genjutsu'       => 'integer',
         'taijutsu'       => 'integer',
+        'space_mochila'     => 'integer',
+        'space_carregando'  => 'integer',
+        'space_pergaminhos' => 'integer',
     ];
 
     public function user(): BelongsTo
@@ -59,6 +63,14 @@ class Character extends Model
     public function talents(): BelongsToMany
     {
         return $this->belongsToMany(Talent::class, 'character_talent')
+            ->withTimestamps();
+    }
+
+    /** Equipamentos atribuídos a esta ficha (com o local de carga no pivot) */
+    public function equipments(): BelongsToMany
+    {
+        return $this->belongsToMany(Equipment::class, 'character_equipment')
+            ->withPivot('location')
             ->withTimestamps();
     }
 

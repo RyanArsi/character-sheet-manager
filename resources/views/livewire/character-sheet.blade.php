@@ -701,8 +701,7 @@ function characterSheet(cid) {
         <div class="flex-1 overflow-y-auto p-6">
             {{-- Equipamentos --}}
             <div x-show="activeTab === 'equipamentos'" dusk="panel-equipamentos">
-                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Equipamentos</h2>
-                <p class="text-gray-600 text-sm">Conteúdo em construção.</p>
+                <livewire:equipment-panel :character-id="$characterId" :key="'equipment-panel-'.$characterId" />
             </div>
 
             {{-- Talentos --}}
