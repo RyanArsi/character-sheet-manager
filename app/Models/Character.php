@@ -55,6 +55,13 @@ class Character extends Model
             ->withTimestamps();
     }
 
+    /** Talentos atribuídos a esta ficha */
+    public function talents(): BelongsToMany
+    {
+        return $this->belongsToMany(Talent::class, 'character_talent')
+            ->withTimestamps();
+    }
+
     public function campaigns(): BelongsToMany
     {
         return $this->belongsToMany(Campaign::class, 'campaign_characters')

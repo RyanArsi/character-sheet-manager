@@ -4,6 +4,7 @@ namespace Tests\Browser;
 
 use App\Models\Character;
 use App\Models\Jutsu;
+use App\Models\Talent;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Laravel\Dusk\Browser;
@@ -256,6 +257,28 @@ class CharacterSheetBrowserTest extends DuskTestCase
                 ->waitFor('@jutsu-toast')
                 ->assertSeeIn('@jutsu-toast', 'chakra')
                 ->assertDontSeeIn('@jutsu-toast', '13');
+        });
+    }
+
+    public function test_usar_talento_rola_teste_e_mostra_chakra_no_toast(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter(); // forca = 12
+        $talent = Talent::create([
+            'user_id'     => $character->user_id,
+            'name'        => 'Golpe Forte',
+            'test_dice'   => 'd1+[forca]', // 1 + 12 = 13
+            'chakra_cost' => '3',
+        ]);
+        $character->talents()->attach($talent->id);
+
+        $this->browse(function (Browser $browser) use ($user, $character, $talent) {
+            $this->visitSheetClean($browser, $user, $character)
+                ->click('@tab-talentos')
+                ->waitFor('@talent-use-'.$talent->id)
+                ->click('@talent-use-'.$talent->id)
+                ->waitFor('@jutsu-toast')
+                ->assertSeeIn('@jutsu-toast', '13')
+                ->assertSeeIn('@jutsu-toast', 'chakra');
         });
     }
 }

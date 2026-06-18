@@ -38,6 +38,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Talentos criados pelo usuário (biblioteca pessoal).
+     */
+    public function talents(): HasMany
+    {
+        return $this->hasMany(Talent::class)->orderByDesc('updated_at');
+    }
+
+    /**
      * Campanhas das quais o usuário é mestre (dono).
      */
     public function ownedCampaigns(): HasMany

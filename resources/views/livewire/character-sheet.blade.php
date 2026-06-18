@@ -707,8 +707,7 @@ function characterSheet(cid) {
 
             {{-- Talentos --}}
             <div x-show="activeTab === 'talentos'" dusk="panel-talentos" x-cloak>
-                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Talentos</h2>
-                <p class="text-gray-600 text-sm">Conteúdo em construção.</p>
+                <livewire:talent-panel :character-id="$characterId" :key="'talent-panel-'.$characterId" />
             </div>
 
             {{-- Jutsus --}}
