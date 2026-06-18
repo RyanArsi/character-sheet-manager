@@ -25,6 +25,12 @@ function characterSheet(cid) {
         // Aba ativa da coluna direita
         activeTab: 'equipamentos',
 
+        // Rolador por notação (aba Dados)
+        diceInput: '',
+        diceError: '',
+        diceResult: null,
+        diceLog: [],
+
         rollDice(label, bonus) {
             const die = Math.floor(Math.random() * 20) + 1;
             bonus = parseInt(bonus) || 0;
@@ -40,6 +46,108 @@ function characterSheet(cid) {
 
             this.rollHistory.unshift({ label, die, bonus, total, time });
             if (this.rollHistory.length > 50) this.rollHistory.pop();
+        },
+
+        // Resolve um nome de atributo/especialização/perícia para seu valor.
+        // Perícia soma os dois modificadores: valor + (treinamento * 2). Retorna null se não existir.
+        statValue(rawName) {
+            const norm = s => (s || '').toString().toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // remove acentos
+                .replace(/\s+/g, '').trim();
+            const key = norm(rawName);
+
+            const attrs = ['forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
+                           'ninjutsu', 'genjutsu', 'taijutsu'];
+            if (attrs.includes(key)) {
+                return parseInt(this.$wire.get(key)) || 0;
+            }
+
+            const skills = this.$wire.get('skills') || [];
+            for (const s of skills) {
+                if (norm(s.name) === key) {
+                    return (parseInt(s.value) || 0) + ((parseInt(s.training_level) || 0) * 2);
+                }
+            }
+            return null;
+        },
+
+        rollExpression() {
+            this.diceError = '';
+            const raw = (this.diceInput || '').trim().toLowerCase().replace(/\s+/g, '');
+            if (!raw) return;
+
+            if ((raw.match(/\[/g) || []).length !== (raw.match(/\]/g) || []).length) {
+                this.diceError = 'Colchetes não fechados. Ex.: d20+[forca].';
+                return;
+            }
+
+            // Garante sinal inicial e quebra em termos: 6d6 | -2d6 | +d20 | +[forca] | -2
+            const signed = (raw[0] === '+' || raw[0] === '-') ? raw : '+' + raw;
+            const re = /([+-])(\d*d\d+|\d+|\[[^\]]+\])/g;
+            const terms = [];
+            let match, consumed = 0;
+            while ((match = re.exec(signed)) !== null) {
+                if (match.index !== consumed) break; // termo malformado/lacuna
+                terms.push({ sign: match[1], body: match[2] });
+                consumed = re.lastIndex;
+            }
+            if (consumed !== signed.length || terms.length === 0) {
+                this.diceError = 'Formato inválido. Ex.: d20+[forca], 6d6-2d6+d20-5.';
+                return;
+            }
+
+            const groups = [];
+            let total = 0;
+            let diceCount = 0;
+            for (const t of terms) {
+                const mul = t.sign === '-' ? -1 : 1;
+                if (t.body[0] === '[') {
+                    const name = t.body.slice(1, -1).trim();
+                    const val = this.statValue(name);
+                    if (val === null) {
+                        this.diceError = 'Não encontrei "' + name + '" entre os atributos, especializações ou perícias.';
+                        return;
+                    }
+                    total += mul * val;
+                    groups.push({ kind: 'ref', sign: t.sign, label: name, value: val });
+                } else if (t.body.includes('d')) {
+                    const [qPart, sPart] = t.body.split('d');
+                    const qty = qPart === '' ? 1 : parseInt(qPart, 10);
+                    const sides = parseInt(sPart, 10);
+                    if (qty < 1 || qty > 100) {
+                        this.diceError = 'Quantidade de dados deve ser entre 1 e 100 (em "' + t.body + '").';
+                        return;
+                    }
+                    if (sides < 1 || sides > 1000) {
+                        this.diceError = 'O dado deve ter entre 1 e 1000 lados (em "' + t.body + '").';
+                        return;
+                    }
+                    const values = [];
+                    for (let i = 0; i < qty; i++) {
+                        const v = Math.floor(Math.random() * sides) + 1;
+                        values.push(v);
+                        total += mul * v;
+                        diceCount++;
+                    }
+                    groups.push({ kind: 'dice', sign: t.sign, label: t.body, sides, values });
+                } else {
+                    const k = parseInt(t.body, 10);
+                    total += mul * k;
+                    groups.push({ kind: 'const', sign: t.sign, value: k });
+                }
+            }
+
+            // Expressão normalizada para exibição: 6d6 − 2d6 + d20 − d100 + 2
+            const expr = terms.map((t, i) =>
+                i === 0
+                    ? (t.sign === '-' ? '−' : '') + t.body
+                    : (t.sign === '-' ? ' − ' : ' + ') + t.body
+            ).join('');
+
+            const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            this.diceResult = { expr, groups, total, time, showBreakdown: groups.length > 1 || diceCount > 1 };
+            this.diceLog.unshift(this.diceResult);
+            if (this.diceLog.length > 30) this.diceLog.pop();
         },
 
         init() {
@@ -506,6 +614,7 @@ function characterSheet(cid) {
                 ['equipamentos', 'Equipamentos'],
                 ['talentos',     'Talentos'],
                 ['jutsus',       'Jutsus'],
+                ['dados',        'Dados'],
                 ['notas',        'Notas'],
             ] as [$tab, $label])
             <button type="button"
@@ -537,6 +646,97 @@ function characterSheet(cid) {
             {{-- Jutsus --}}
             <div x-show="activeTab === 'jutsus'" dusk="panel-jutsus" x-cloak>
                 <livewire:jutsu-panel :character-id="$characterId" :key="'jutsu-panel-'.$characterId" />
+            </div>
+
+            {{-- Dados --}}
+            <div x-show="activeTab === 'dados'" dusk="panel-dados" x-cloak>
+                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Dados</h2>
+
+                {{-- Entrada de notação --}}
+                <form @submit.prevent="rollExpression()" class="mb-4">
+                    <div class="flex gap-2">
+                        <input type="text"
+                            x-model="diceInput"
+                            dusk="dice-input"
+                            placeholder="ex: d20+[forca], 6d6-2d6+d20-5"
+                            autocomplete="off" spellcheck="false"
+                            class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 font-mono lowercase focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none">
+                        <button type="submit"
+                            dusk="dice-roll-btn"
+                            class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-bold rounded-lg transition-colors flex-shrink-0">
+                            🎲 Rolar
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-gray-600 mt-1.5 leading-relaxed">
+                        Combine termos com <span class="font-mono text-gray-500">+</span> e <span class="font-mono text-gray-500">−</span>, e some valores da ficha com <span class="font-mono text-gray-500">[nome]</span>:
+                        <span class="font-mono text-gray-500">d20+[forca]</span>,
+                        <span class="font-mono text-gray-500">d6+[taijutsu]</span>,
+                        <span class="font-mono text-gray-500">2d6+[esquiva]-1</span>
+                    </p>
+                    <p x-show="diceError" x-text="diceError" x-cloak
+                        dusk="dice-error"
+                        class="text-xs text-red-400 mt-2"></p>
+                </form>
+
+                {{-- Resultado --}}
+                <template x-if="diceResult">
+                    <div dusk="dice-result" class="bg-gray-900 border border-gray-700 rounded-xl p-4 mb-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="font-mono text-xs text-amber-400 tracking-wider" x-text="diceResult.expr"></span>
+                            <span class="text-3xl font-black text-white leading-none" dusk="dice-total" x-text="diceResult.total"></span>
+                        </div>
+
+                        {{-- Detalhamento por termo --}}
+                        <div class="space-y-2" x-show="diceResult.showBreakdown">
+                            <template x-for="(g, gi) in diceResult.groups" :key="gi">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <template x-if="g.kind === 'dice'">
+                                        <span class="font-mono text-[10px] w-14 flex-shrink-0"
+                                            :class="g.sign === '-' ? 'text-red-400' : 'text-gray-500'"
+                                            x-text="(g.sign === '-' ? '−' : '+') + g.label"></span>
+                                    </template>
+                                    <template x-if="g.kind === 'dice'">
+                                        <template x-for="(v, i) in g.values" :key="i">
+                                            <span class="w-8 h-8 rounded-md text-xs font-bold flex items-center justify-center"
+                                                :class="g.sign === '-'
+                                                    ? 'bg-red-500/10 text-red-300'
+                                                    : (v === g.sides ? 'bg-amber-500/30 text-amber-300' : v === 1 ? 'bg-red-500/20 text-red-300' : 'bg-gray-700 text-white')"
+                                                x-text="v"></span>
+                                        </template>
+                                    </template>
+                                    <template x-if="g.kind === 'const'">
+                                        <span class="font-mono text-[11px] px-2 py-1 rounded-md bg-gray-800"
+                                            :class="g.sign === '-' ? 'text-red-400' : 'text-gray-400'"
+                                            x-text="(g.sign === '-' ? '−' : '+') + g.value"></span>
+                                    </template>
+                                    <template x-if="g.kind === 'ref'">
+                                        <span class="font-mono text-[11px] px-2 py-1 rounded-md bg-amber-500/10"
+                                            :class="g.sign === '-' ? 'text-red-300' : 'text-amber-300'"
+                                            x-text="(g.sign === '-' ? '−' : '+') + g.label + ' (' + g.value + ')'"></span>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                {{-- Histórico local da aba --}}
+                <div x-show="diceLog.length > 0" x-cloak>
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Recentes</h3>
+                        <button type="button" @click="diceLog = []" dusk="dice-clear-btn"
+                            class="text-[10px] text-gray-600 hover:text-red-400 transition-colors">Limpar</button>
+                    </div>
+                    <div class="space-y-1.5">
+                        <template x-for="(r, i) in diceLog" :key="i">
+                            <div class="flex items-center gap-3 bg-gray-900/60 rounded-lg px-3 py-2">
+                                <span class="font-mono text-[11px] text-gray-400 flex-1 truncate" x-text="r.expr"></span>
+                                <span class="text-[10px] text-gray-600 flex-shrink-0" x-text="r.time"></span>
+                                <span class="text-sm font-bold text-amber-400 flex-shrink-0 w-10 text-right" x-text="r.total"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
 
             {{-- Notas --}}

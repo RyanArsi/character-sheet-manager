@@ -116,4 +116,77 @@ class CharacterSheetBrowserTest extends DuskTestCase
                 ->assertMissing('#roll-history-drawer');
         });
     }
+
+    // ===== Aba Dados — rolador por notação =====
+
+    public function test_rolar_notacao_simples_exibe_total(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter();
+
+        $this->browse(function (Browser $browser) use ($user, $character) {
+            $this->visitSheet($browser, $user, $character)
+                ->click('@tab-dados')
+                ->waitFor('@dice-input')
+                ->type('@dice-input', 'd1') // d1 sempre resulta 1
+                ->click('@dice-roll-btn')
+                ->waitFor('@dice-result')
+                ->assertSeeIn('@dice-total', '1');
+        });
+    }
+
+    public function test_expressao_soma_atributo_da_ficha(): void
+    {
+        // forca = 12 (factory)  →  d1 + [forca] = 13
+        [$user, $character] = $this->createUserWithCharacter();
+
+        $this->browse(function (Browser $browser) use ($user, $character) {
+            $this->visitSheet($browser, $user, $character)
+                ->click('@tab-dados')
+                ->waitFor('@dice-input')
+                ->type('@dice-input', 'd1+[forca]')
+                ->click('@dice-roll-btn')
+                ->waitFor('@dice-result')
+                ->assertSeeIn('@dice-total', '13')
+                ->assertSeeIn('@dice-result', 'forca');
+        });
+    }
+
+    public function test_referencia_de_pericia_soma_valor_e_treinamento(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('password')]);
+        $character = Character::factory()->withSkills()->create(['user_id' => $user->id]);
+
+        // Os dois modificadores da perícia: valor 3 + treinamento nível 2 (×2 = 4) = bônus 7
+        // d1 + [bukijutsu] = 1 + 7 = 8
+        $character->skills()->where('name', 'Bukijutsu')->update([
+            'value'          => 3,
+            'trained'        => true,
+            'training_level' => 2,
+        ]);
+
+        $this->browse(function (Browser $browser) use ($user, $character) {
+            $this->visitSheet($browser, $user, $character)
+                ->click('@tab-dados')
+                ->waitFor('@dice-input')
+                ->type('@dice-input', 'd1+[bukijutsu]')
+                ->click('@dice-roll-btn')
+                ->waitFor('@dice-result')
+                ->assertSeeIn('@dice-total', '8');
+        });
+    }
+
+    public function test_referencia_inexistente_exibe_erro(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter();
+
+        $this->browse(function (Browser $browser) use ($user, $character) {
+            $this->visitSheet($browser, $user, $character)
+                ->click('@tab-dados')
+                ->waitFor('@dice-input')
+                ->type('@dice-input', 'd1+[inexistente]')
+                ->click('@dice-roll-btn')
+                ->waitFor('@dice-error')
+                ->assertSeeIn('@dice-error', 'Não encontrei');
+        });
+    }
 }
