@@ -1,5 +1,7 @@
 {{--
     Card de talento reutilizável.
+    Tags e campos ficam sempre visíveis; o expandir (seta à esquerda da foto ou
+    clique na foto) revela apenas a descrição e as infos.
     $talent : modelo Talent (com user carregado)
     $mode   : 'assigned' (na ficha) | 'available' (na biblioteca, fora da ficha) | 'in-sheet' (na biblioteca, já na ficha)
     $authId : id do usuário logado (para mostrar editar só ao criador)
@@ -13,16 +15,29 @@
         'media'  => $talent->media ? Storage::url($talent->media) : null,
         'volume' => $talent->volume ?? 100,
     ];
+    $hasDetails = $talent->description || $talent->infos;
 @endphp
-<div class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="talent-card-{{ $talent->id }}">
-    <div class="flex gap-3">
-        {{-- Imagem --}}
-        <div class="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
-            @if($talent->image)
-                <img src="{{ Storage::url($talent->image) }}" class="w-full h-full object-cover">
-            @else
-                <span class="text-gray-700 text-xl">✦</span>
+<div x-data="{ expanded: false }" class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="talent-card-{{ $talent->id }}">
+    <div class="flex items-start gap-3">
+        {{-- Seta de expandir (à esquerda da foto) + imagem --}}
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            @if($hasDetails)
+                <button type="button" @click="expanded = !expanded"
+                    dusk="talent-details-{{ $talent->id }}"
+                    title="Descrição / infos"
+                    class="text-gray-500 hover:text-amber-300 text-xs w-3 text-center">
+                    <span x-show="!expanded">▾</span>
+                    <span x-show="expanded" x-cloak>▴</span>
+                </button>
             @endif
+            <div @if($hasDetails) @click="expanded = !expanded" title="Descrição / infos" @endif
+                class="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center {{ $hasDetails ? 'cursor-pointer' : '' }}">
+                @if($talent->image)
+                    <img src="{{ Storage::url($talent->image) }}" class="w-full h-full object-cover">
+                @else
+                    <span class="text-gray-700 text-xl">✦</span>
+                @endif
+            </div>
         </div>
 
         <div class="flex-1 min-w-0">
@@ -89,12 +104,16 @@
         </div>
     </div>
 
-    {{-- Descrição e infos --}}
-    @if($talent->description)
-        <p class="text-[11px] text-gray-300 mt-2 whitespace-pre-line">{{ $talent->description }}</p>
-    @endif
-    @if($talent->infos)
-        <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $talent->infos }}</p>
+    {{-- Descrição e infos: reveladas ao expandir --}}
+    @if($hasDetails)
+        <div x-show="expanded" x-cloak class="mt-2">
+            @if($talent->description)
+                <p class="text-[11px] text-gray-300 whitespace-pre-line">{{ $talent->description }}</p>
+            @endif
+            @if($talent->infos)
+                <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $talent->infos }}</p>
+            @endif
+        </div>
     @endif
 
     {{-- Autor --}}

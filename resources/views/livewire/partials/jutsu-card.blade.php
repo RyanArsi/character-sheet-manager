@@ -1,5 +1,7 @@
 {{--
     Card de jutsu reutilizável.
+    Tags e campos ficam sempre visíveis; o expandir (seta à esquerda da foto ou
+    clique na foto) revela apenas a descrição e as infos.
     $jutsu : modelo Jutsu (com user carregado)
     $mode  : 'assigned' (na ficha) | 'available' (na biblioteca, fora da ficha) | 'in-sheet' (na biblioteca, já na ficha)
     $authId: id do usuário logado (para mostrar editar só ao criador)
@@ -13,16 +15,29 @@
         'media'  => $jutsu->media ? Storage::url($jutsu->media) : null,
         'volume' => $jutsu->volume ?? 100,
     ];
+    $hasDetails = $jutsu->description || $jutsu->infos;
 @endphp
-<div class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="jutsu-card-{{ $jutsu->id }}">
-    <div class="flex gap-3">
-        {{-- Imagem --}}
-        <div class="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
-            @if($jutsu->image)
-                <img src="{{ Storage::url($jutsu->image) }}" class="w-full h-full object-cover">
-            @else
-                <span class="text-gray-700 text-xl">🌀</span>
+<div x-data="{ expanded: false }" class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="jutsu-card-{{ $jutsu->id }}">
+    <div class="flex items-start gap-3">
+        {{-- Seta de expandir (à esquerda da foto) + imagem --}}
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+            @if($hasDetails)
+                <button type="button" @click="expanded = !expanded"
+                    dusk="jutsu-details-{{ $jutsu->id }}"
+                    title="Descrição / infos"
+                    class="text-gray-500 hover:text-amber-300 text-xs w-3 text-center">
+                    <span x-show="!expanded">▾</span>
+                    <span x-show="expanded" x-cloak>▴</span>
+                </button>
             @endif
+            <div @if($hasDetails) @click="expanded = !expanded" title="Descrição / infos" @endif
+                class="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center {{ $hasDetails ? 'cursor-pointer' : '' }}">
+                @if($jutsu->image)
+                    <img src="{{ Storage::url($jutsu->image) }}" class="w-full h-full object-cover">
+                @else
+                    <span class="text-gray-700 text-xl">🌀</span>
+                @endif
+            </div>
         </div>
 
         <div class="flex-1 min-w-0">
@@ -89,12 +104,16 @@
         </div>
     </div>
 
-    {{-- Descrição e infos --}}
-    @if($jutsu->description)
-        <p class="text-[11px] text-gray-300 mt-2 whitespace-pre-line">{{ $jutsu->description }}</p>
-    @endif
-    @if($jutsu->infos)
-        <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $jutsu->infos }}</p>
+    {{-- Descrição e infos: reveladas ao expandir --}}
+    @if($hasDetails)
+        <div x-show="expanded" x-cloak class="mt-2">
+            @if($jutsu->description)
+                <p class="text-[11px] text-gray-300 whitespace-pre-line">{{ $jutsu->description }}</p>
+            @endif
+            @if($jutsu->infos)
+                <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $jutsu->infos }}</p>
+            @endif
+        </div>
     @endif
 
     {{-- Autor --}}
