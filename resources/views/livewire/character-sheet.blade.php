@@ -696,13 +696,13 @@ function characterSheet(cid) {
         </div>
 
         {{-- Vantagem / Desvantagem — ajusta o teste exibido com ±1d6 --}}
-        <div class="flex items-center justify-center gap-2 py-1.5 bg-gray-900/40 border-b border-gray-700 flex-shrink-0">
+        <div class="flex items-center gap-2 px-6 py-2 bg-gray-900/40 border-b border-gray-700 flex-shrink-0">
             <button type="button" @click="applyAdvantage(1)" dusk="advantage-btn"
                 title="Vantagem: rola 1d6 e soma ao teste exibido"
-                class="w-6 h-6 rounded bg-green-600 hover:bg-green-500 ring-1 ring-green-400/40 shadow transition-colors"></button>
+                class="w-7 h-7 rounded-md bg-green-600 hover:bg-green-500 active:translate-y-px text-white font-black text-sm flex items-center justify-center ring-1 ring-green-300/40 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.4),inset_0_-2px_3px_rgba(0,0,0,0.35),0_2px_4px_rgba(0,0,0,0.45)]">6</button>
             <button type="button" @click="applyAdvantage(-1)" dusk="disadvantage-btn"
                 title="Desvantagem: rola 1d6 e subtrai do teste exibido"
-                class="w-6 h-6 rounded bg-red-600 hover:bg-red-500 ring-1 ring-red-400/40 shadow transition-colors"></button>
+                class="w-7 h-7 rounded-md bg-red-600 hover:bg-red-500 active:translate-y-px text-white font-black text-sm flex items-center justify-center ring-1 ring-red-300/40 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.4),inset_0_-2px_3px_rgba(0,0,0,0.35),0_2px_4px_rgba(0,0,0,0.45)]">6</button>
         </div>
 
         {{-- Miolo central — controle de turnos, condições, etc --}}
