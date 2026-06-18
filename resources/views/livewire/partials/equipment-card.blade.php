@@ -16,10 +16,10 @@
     ];
     $locationLabels = ['mochila' => 'Mochila', 'carregando' => 'Carregando', 'pergaminhos' => 'Pergaminhos'];
 @endphp
-<div class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="equipment-card-{{ $equipment->id }}">
-    <div class="flex gap-3">
+<div x-data="{ expanded: false }" class="bg-gray-900 border border-gray-700 rounded-lg p-2.5 mb-2" dusk="equipment-card-{{ $equipment->id }}">
+    <div class="flex gap-2.5">
         {{-- Imagem --}}
-        <div class="w-14 h-14 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
+        <div class="w-11 h-11 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
             @if($equipment->image)
                 <img src="{{ Storage::url($equipment->image) }}" class="w-full h-full object-cover">
             @else
@@ -102,14 +102,24 @@
         </div>
     </div>
 
-    {{-- Descrição e infos --}}
-    @if($equipment->description)
-        <p class="text-[11px] text-gray-300 mt-2 whitespace-pre-line">{{ $equipment->description }}</p>
+    {{-- Descrição e infos: ocultos por padrão (card compacto), expandem sob demanda --}}
+    @if($equipment->description || $equipment->infos)
+        <button type="button" @click="expanded = !expanded"
+            dusk="equipment-details-{{ $equipment->id }}"
+            class="mt-1.5 text-[10px] text-gray-500 hover:text-amber-300 transition-colors">
+            <span x-show="!expanded">▾ detalhes</span>
+            <span x-show="expanded" x-cloak>▴ recolher</span>
+        </button>
+        <div x-show="expanded" x-cloak class="mt-1">
+            @if($equipment->description)
+                <p class="text-[11px] text-gray-300 whitespace-pre-line">{{ $equipment->description }}</p>
+            @endif
+            @if($equipment->infos)
+                <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $equipment->infos }}</p>
+            @endif
+            <p class="text-[9px] text-gray-600 mt-2 text-right">por {{ $equipment->user->name ?? '—' }}</p>
+        </div>
+    @else
+        <p class="text-[9px] text-gray-600 mt-1.5 text-right">por {{ $equipment->user->name ?? '—' }}</p>
     @endif
-    @if($equipment->infos)
-        <p class="text-[10px] text-gray-500 mt-1 whitespace-pre-line"><span class="text-gray-600">Infos:</span> {{ $equipment->infos }}</p>
-    @endif
-
-    {{-- Autor --}}
-    <p class="text-[9px] text-gray-600 mt-2 text-right">por {{ $equipment->user->name ?? '—' }}</p>
 </div>
