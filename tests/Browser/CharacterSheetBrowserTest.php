@@ -283,6 +283,34 @@ class CharacterSheetBrowserTest extends DuskTestCase
         });
     }
 
+    public function test_vantagem_soma_d6_ao_teste(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter();
+
+        $this->browse(function (Browser $browser) use ($user, $character) {
+            $this->visitSheet($browser, $user, $character)
+                ->click('@roll-forca')
+                ->waitFor('#roll-toast')
+                ->click('@advantage-btn')
+                ->waitFor('@adv-chips')
+                ->assertSeeIn('@adv-chips', '+');
+        });
+    }
+
+    public function test_desvantagem_subtrai_d6_do_teste(): void
+    {
+        [$user, $character] = $this->createUserWithCharacter();
+
+        $this->browse(function (Browser $browser) use ($user, $character) {
+            $this->visitSheet($browser, $user, $character)
+                ->click('@roll-forca')
+                ->waitFor('#roll-toast')
+                ->click('@disadvantage-btn')
+                ->waitFor('@adv-chips')
+                ->assertSeeIn('@adv-chips', '−');
+        });
+    }
+
     public function test_usar_equipamento_rola_teste_no_toast(): void
     {
         [$user, $character] = $this->createUserWithCharacter(); // forca = 12

@@ -208,6 +208,35 @@ function characterSheet(cid) {
             } catch (e) { /* mídia indisponível — ignora */ }
         },
 
+        // Vantagem (+1) / Desvantagem (-1): rola 1d6 e soma/subtrai ao teste exibido.
+        applyAdvantage(sign) {
+            const r = this.roll;
+            const hasRoll = (r.kind === 'attr' && r.die > 0)
+                || (r.kind === 'jutsu' && Array.isArray(r.lines) && r.lines.length > 0);
+            if (!hasRoll) return;
+
+            const d6 = Math.floor(Math.random() * 6) + 1;
+            if (! Array.isArray(r.advMods)) r.advMods = [];
+            r.advMods.push({ sign, value: d6 });
+            const advSum = r.advMods.reduce((s, m) => s + m.sign * m.value, 0);
+
+            if (r.kind === 'attr') {
+                r.total = r.die + r.bonus + advSum;
+            } else {
+                // aplica ao teste (linha "Teste"; senão à primeira linha)
+                const line = r.lines.find((l) => l.label === 'Teste') || r.lines[0];
+                if (line) {
+                    if (line.base === undefined) line.base = line.total;
+                    line.total = line.base + advSum;
+                }
+            }
+
+            // mantém o toast visível e renova o tempo
+            clearTimeout(r.timer);
+            r.visible = true;
+            r.timer = setTimeout(() => { this.roll.visible = false; }, 6000);
+        },
+
         init() {
             // Configuração de uso de jutsu, persistida por ficha
             const savedCfg = localStorage.getItem('jutsucfg_' + this.cid);
@@ -666,6 +695,16 @@ function characterSheet(cid) {
             </div>
         </div>
 
+        {{-- Vantagem / Desvantagem — ajusta o teste exibido com ±1d6 --}}
+        <div class="flex items-center justify-center gap-2 py-1.5 bg-gray-900/40 border-b border-gray-700 flex-shrink-0">
+            <button type="button" @click="applyAdvantage(1)" dusk="advantage-btn"
+                title="Vantagem: rola 1d6 e soma ao teste exibido"
+                class="w-6 h-6 rounded bg-green-600 hover:bg-green-500 ring-1 ring-green-400/40 shadow transition-colors"></button>
+            <button type="button" @click="applyAdvantage(-1)" dusk="disadvantage-btn"
+                title="Desvantagem: rola 1d6 e subtrai do teste exibido"
+                class="w-6 h-6 rounded bg-red-600 hover:bg-red-500 ring-1 ring-red-400/40 shadow transition-colors"></button>
+        </div>
+
         {{-- Miolo central — controle de turnos, condições, etc --}}
         <div class="flex-1 overflow-y-auto flex items-center justify-center text-gray-700 text-sm">
             Controle de turnos &amp; condições — em construção
@@ -1001,6 +1040,18 @@ function characterSheet(cid) {
                     </div>
                 </div>
             </template>
+
+            {{-- Vantagem / desvantagem aplicadas (±1d6) --}}
+            <div x-show="roll.advMods && roll.advMods.length" x-cloak
+                dusk="adv-chips"
+                class="mt-2 pt-2 border-t border-gray-700 flex items-center gap-1.5 flex-wrap">
+                <span class="text-[10px] text-gray-500 uppercase tracking-widest">1d6</span>
+                <template x-for="(m, i) in roll.advMods" :key="i">
+                    <span class="w-6 h-6 rounded flex items-center justify-center text-xs font-bold"
+                        :class="m.sign > 0 ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'"
+                        x-text="(m.sign > 0 ? '+' : '−') + m.value"></span>
+                </template>
+            </div>
 
             <p class="text-[10px] text-gray-600 mt-2 text-right">clique para fechar</p>
         </div>
