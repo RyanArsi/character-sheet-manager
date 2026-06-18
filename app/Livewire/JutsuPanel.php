@@ -38,6 +38,8 @@ class JutsuPanel extends Component
     public string $name = '';
     public string $tagsInput = '';
     public string $chakra_cost = '';
+    public string $test_dice = '';
+    public string $damage_dice = '';
     public string $actions = '';
     public string $area_range = '';
     public string $target = '';
@@ -45,6 +47,9 @@ class JutsuPanel extends Component
     public string $infos = '';
     public $image;               // upload novo
     public ?string $imagePath = null;
+    public $media;               // upload de áudio/vídeo novo
+    public ?string $mediaPath = null;
+    public int $volume = 100;
 
     public function mount(int $characterId): void
     {
@@ -90,6 +95,8 @@ class JutsuPanel extends Component
         $this->name        = $jutsu->name;
         $this->tagsInput   = implode(', ', $jutsu->tags ?? []);
         $this->chakra_cost = $jutsu->chakra_cost ?? '';
+        $this->test_dice   = $jutsu->test_dice ?? '';
+        $this->damage_dice = $jutsu->damage_dice ?? '';
         $this->actions     = $jutsu->actions ?? '';
         $this->area_range  = $jutsu->area_range ?? '';
         $this->target      = $jutsu->target ?? '';
@@ -97,6 +104,9 @@ class JutsuPanel extends Component
         $this->infos       = $jutsu->infos ?? '';
         $this->imagePath   = $jutsu->image;
         $this->image       = null;
+        $this->mediaPath   = $jutsu->media;
+        $this->media       = null;
+        $this->volume      = $jutsu->volume ?? 100;
         $this->view        = 'form';
     }
 
@@ -109,8 +119,8 @@ class JutsuPanel extends Component
     public function resetForm(): void
     {
         $this->reset([
-            'editingId', 'name', 'tagsInput', 'chakra_cost', 'actions',
-            'area_range', 'target', 'description', 'infos', 'image', 'imagePath',
+            'editingId', 'name', 'tagsInput', 'chakra_cost', 'test_dice', 'damage_dice', 'actions',
+            'area_range', 'target', 'description', 'infos', 'image', 'imagePath', 'media', 'mediaPath', 'volume',
         ]);
     }
 
@@ -121,12 +131,16 @@ class JutsuPanel extends Component
             'name'        => 'required|string|max:120',
             'tagsInput'   => 'nullable|string|max:255',
             'chakra_cost' => 'nullable|string|max:60',
+            'test_dice'   => 'nullable|string|max:120',
+            'damage_dice' => 'nullable|string|max:120',
             'actions'     => 'nullable|string|max:60',
             'area_range'  => 'nullable|string|max:120',
             'target'      => 'nullable|string|max:120',
             'description' => 'nullable|string|max:5000',
             'infos'       => 'nullable|string|max:5000',
             'image'       => 'nullable|image|max:2048',
+            'media'       => 'nullable|file|mimes:mp3,wav,ogg,m4a,aac,mpga,mp4,webm,mov,ogv|max:20480',
+            'volume'      => 'integer|min:0|max:100',
         ]);
 
         $tags = collect(explode(',', $this->tagsInput))
@@ -145,15 +159,22 @@ class JutsuPanel extends Component
             'name'        => $this->name,
             'tags'        => $tags,
             'chakra_cost' => $this->chakra_cost ?: null,
+            'test_dice'   => $this->test_dice ?: null,
+            'damage_dice' => $this->damage_dice ?: null,
             'actions'     => $this->actions ?: null,
             'area_range'  => $this->area_range ?: null,
             'target'      => $this->target ?: null,
             'description' => $this->description ?: null,
             'infos'       => $this->infos ?: null,
+            'volume'      => $this->volume,
         ];
 
         if ($this->image) {
             $data['image'] = $this->image->store('jutsus', 'public');
+        }
+
+        if ($this->media) {
+            $data['media'] = $this->media->store('jutsus/media', 'public');
         }
 
         if ($this->editingId) {
@@ -261,12 +282,16 @@ class JutsuPanel extends Component
                 'name'        => $j->name,
                 'tags'        => $j->tags ?? [],
                 'chakra_cost' => $j->chakra_cost,
+                'test_dice'   => $j->test_dice,
+                'damage_dice' => $j->damage_dice,
                 'actions'     => $j->actions,
                 'area_range'  => $j->area_range,
                 'target'      => $j->target,
                 'description' => $j->description,
                 'infos'       => $j->infos,
                 'image'       => $j->image,
+                'media'       => $j->media,
+                'volume'      => $j->volume,
                 'created_by'  => $j->user->name ?? null,
             ])->all(),
             'tags' => $tags,
@@ -326,12 +351,16 @@ class JutsuPanel extends Component
                 'name'        => mb_substr((string) $j['name'], 0, 120),
                 'tags'        => $tags,
                 'chakra_cost' => $j['chakra_cost'] ?? null,
+                'test_dice'   => $j['test_dice'] ?? null,
+                'damage_dice' => $j['damage_dice'] ?? null,
                 'actions'     => $j['actions'] ?? null,
                 'area_range'  => $j['area_range'] ?? null,
                 'target'      => $j['target'] ?? null,
                 'description' => $j['description'] ?? null,
                 'infos'       => $j['infos'] ?? null,
                 'image'       => $j['image'] ?? null,
+                'media'       => $j['media'] ?? null,
+                'volume'      => $j['volume'] ?? 100,
             ]);
 
             $existing[] = mb_strtolower($j['name']);

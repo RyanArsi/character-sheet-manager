@@ -4,6 +4,16 @@
     $mode  : 'assigned' (na ficha) | 'available' (na biblioteca, fora da ficha) | 'in-sheet' (na biblioteca, já na ficha)
     $authId: id do usuário logado (para mostrar editar só ao criador)
 --}}
+@php
+    $jutsuPayload = [
+        'name'   => $jutsu->name,
+        'test'   => $jutsu->test_dice,
+        'damage' => $jutsu->damage_dice,
+        'chakra' => $jutsu->chakra_cost,
+        'media'  => $jutsu->media ? Storage::url($jutsu->media) : null,
+        'volume' => $jutsu->volume ?? 100,
+    ];
+@endphp
 <div class="bg-gray-900 border border-gray-700 rounded-lg p-3 mb-2" dusk="jutsu-card-{{ $jutsu->id }}">
     <div class="flex gap-3">
         {{-- Imagem --}}
@@ -29,7 +39,20 @@
 
             {{-- Nome + ações --}}
             <div class="flex items-start justify-between gap-2">
-                <h3 class="text-sm font-semibold text-white leading-tight">{{ $jutsu->name }}</h3>
+                @if($mode === 'assigned')
+                    <button type="button" @click="$dispatch('use-jutsu', @js($jutsuPayload))"
+                        dusk="jutsu-use-{{ $jutsu->id }}"
+                        title="Usar jutsu (rola dados, toca som, desconta chakra)"
+                        class="text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1">
+                        {{ $jutsu->name }}
+                        @if($jutsu->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
+                    </button>
+                @else
+                    <h3 class="text-sm font-semibold text-white leading-tight flex items-center gap-1">
+                        {{ $jutsu->name }}
+                        @if($jutsu->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
+                    </h3>
+                @endif
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     @if($jutsu->user_id === $authId)
                         <button type="button" wire:click="startEdit({{ $jutsu->id }})"
@@ -57,6 +80,8 @@
             {{-- Atributos curtos --}}
             <div class="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5 text-[11px] text-gray-400">
                 @if($jutsu->chakra_cost)<div><span class="text-gray-600">Chakra:</span> {{ $jutsu->chakra_cost }}</div>@endif
+                @if($jutsu->test_dice)<div><span class="text-gray-600">Teste:</span> <span class="font-mono text-gray-300">{{ $jutsu->test_dice }}</span></div>@endif
+                @if($jutsu->damage_dice)<div><span class="text-gray-600">Dano:</span> <span class="font-mono text-gray-300">{{ $jutsu->damage_dice }}</span></div>@endif
                 @if($jutsu->actions)<div><span class="text-gray-600">Ações:</span> {{ $jutsu->actions }}</div>@endif
                 @if($jutsu->area_range)<div><span class="text-gray-600">Área/alc.:</span> {{ $jutsu->area_range }}</div>@endif
                 @if($jutsu->target)<div><span class="text-gray-600">Alvo:</span> {{ $jutsu->target }}</div>@endif

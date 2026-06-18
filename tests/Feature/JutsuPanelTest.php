@@ -128,6 +128,69 @@ class JutsuPanelTest extends TestCase
         $this->assertDatabaseHas('tags', ['name' => 'ofensivo']);
     }
 
+    public function test_criar_jutsu_salva_dados_dano_e_volume(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+        $this->actingAs($user);
+
+        Livewire::test(JutsuPanel::class, ['characterId' => $character->id])
+            ->call('startCreate')
+            ->set('name', 'Chidori')
+            ->set('test_dice', 'd20+[ninjutsu]')
+            ->set('damage_dice', '4d6+[forca]')
+            ->set('volume', 70)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $jutsu = Jutsu::firstWhere('name', 'Chidori');
+
+        $this->assertSame('d20+[ninjutsu]', $jutsu->test_dice);
+        $this->assertSame('4d6+[forca]', $jutsu->damage_dice);
+        $this->assertSame(70, $jutsu->volume);
+    }
+
+    public function test_upload_de_midia_e_armazenado(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        [$user, $character] = $this->userWithCharacter();
+        $this->actingAs($user);
+
+        $audio = UploadedFile::fake()->create('jutsu.mp3', 200, 'audio/mpeg');
+
+        Livewire::test(JutsuPanel::class, ['characterId' => $character->id])
+            ->call('startCreate')
+            ->set('name', 'Rasengan')
+            ->set('media', $audio)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $jutsu = Jutsu::firstWhere('name', 'Rasengan');
+
+        $this->assertNotNull($jutsu->media);
+        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($jutsu->media);
+    }
+
+    public function test_editar_jutsu_carrega_campos_de_rolagem(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+        $jutsu = Jutsu::create([
+            'user_id'     => $user->id,
+            'name'        => 'Katon',
+            'test_dice'   => 'd20+[ninjutsu]',
+            'damage_dice' => '3d6',
+            'volume'      => 40,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(JutsuPanel::class, ['characterId' => $character->id])
+            ->call('startEdit', $jutsu->id)
+            ->assertSet('test_dice', 'd20+[ninjutsu]')
+            ->assertSet('damage_dice', '3d6')
+            ->assertSet('volume', 40);
+    }
+
     public function test_ver_e_editar_significado_da_tag(): void
     {
         [$user, $character] = $this->userWithCharacter();

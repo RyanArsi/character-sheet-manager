@@ -15,9 +15,13 @@ function characterSheet(cid) {
         lockPericias: false,
 
         // Rolagem de dados
-        roll: { label: '', die: 0, bonus: 0, total: 0, visible: false, timer: null },
+        roll: { kind: 'attr', label: '', die: 0, bonus: 0, total: 0, name: '', lines: [], chakraSpent: 0, visible: false, timer: null },
         rollHistory: [],
         historyOpen: false,
+
+        // Configuração de uso de jutsu (persistida por ficha)
+        jutsuCfg: { chakra: true, test: true, damage: true },
+        jutsuMedia: null,
 
         // Alerta de subida de nível
         levelAlert: { visible: false, hp: 0, chakra: '' },
@@ -40,7 +44,7 @@ function characterSheet(cid) {
 
             clearTimeout(this.roll.timer);
             this.roll = {
-                label, die, bonus, total, visible: true,
+                kind: 'attr', label, die, bonus, total, visible: true,
                 timer: setTimeout(() => { this.roll.visible = false; }, 6000),
             };
 
@@ -71,14 +75,14 @@ function characterSheet(cid) {
             return null;
         },
 
-        rollExpression() {
-            this.diceError = '';
-            const raw = (this.diceInput || '').trim().toLowerCase().replace(/\s+/g, '');
-            if (!raw) return;
+        // Avalia uma expressão de dados (mesma notação da aba Dados, com referências [nome]).
+        // Retorna { ok:true, total, groups, expr, showBreakdown } ou { ok:false, error }.
+        evalDice(input) {
+            const raw = (input || '').toString().trim().toLowerCase().replace(/\s+/g, '');
+            if (!raw) return { ok: false, error: 'Expressão vazia.' };
 
             if ((raw.match(/\[/g) || []).length !== (raw.match(/\]/g) || []).length) {
-                this.diceError = 'Colchetes não fechados. Ex.: d20+[forca].';
-                return;
+                return { ok: false, error: 'Colchetes não fechados. Ex.: d20+[forca].' };
             }
 
             // Garante sinal inicial e quebra em termos: 6d6 | -2d6 | +d20 | +[forca] | -2
@@ -92,8 +96,7 @@ function characterSheet(cid) {
                 consumed = re.lastIndex;
             }
             if (consumed !== signed.length || terms.length === 0) {
-                this.diceError = 'Formato inválido. Ex.: d20+[forca], 6d6-2d6+d20-5.';
-                return;
+                return { ok: false, error: 'Formato inválido. Ex.: d20+[forca], 6d6-2d6+d20-5.' };
             }
 
             const groups = [];
@@ -105,8 +108,7 @@ function characterSheet(cid) {
                     const name = t.body.slice(1, -1).trim();
                     const val = this.statValue(name);
                     if (val === null) {
-                        this.diceError = 'Não encontrei "' + name + '" entre os atributos, especializações ou perícias.';
-                        return;
+                        return { ok: false, error: 'Não encontrei "' + name + '" entre os atributos, especializações ou perícias.' };
                     }
                     total += mul * val;
                     groups.push({ kind: 'ref', sign: t.sign, label: name, value: val });
@@ -115,12 +117,10 @@ function characterSheet(cid) {
                     const qty = qPart === '' ? 1 : parseInt(qPart, 10);
                     const sides = parseInt(sPart, 10);
                     if (qty < 1 || qty > 100) {
-                        this.diceError = 'Quantidade de dados deve ser entre 1 e 100 (em "' + t.body + '").';
-                        return;
+                        return { ok: false, error: 'Quantidade de dados deve ser entre 1 e 100 (em "' + t.body + '").' };
                     }
                     if (sides < 1 || sides > 1000) {
-                        this.diceError = 'O dado deve ter entre 1 e 1000 lados (em "' + t.body + '").';
-                        return;
+                        return { ok: false, error: 'O dado deve ter entre 1 e 1000 lados (em "' + t.body + '").' };
                     }
                     const values = [];
                     for (let i = 0; i < qty; i++) {
@@ -144,13 +144,80 @@ function characterSheet(cid) {
                     : (t.sign === '-' ? ' − ' : ' + ') + t.body
             ).join('');
 
+            return { ok: true, total, groups, expr, showBreakdown: groups.length > 1 || diceCount > 1 };
+        },
+
+        rollExpression() {
+            this.diceError = '';
+            const r = this.evalDice(this.diceInput);
+            if (!r.ok) {
+                this.diceError = r.error;
+                return;
+            }
+
             const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            this.diceResult = { expr, groups, total, time, showBreakdown: groups.length > 1 || diceCount > 1 };
+            this.diceResult = { expr: r.expr, groups: r.groups, total: r.total, time, showBreakdown: r.showBreakdown };
             this.diceLog.unshift(this.diceResult);
             if (this.diceLog.length > 30) this.diceLog.pop();
         },
 
+        // Usa um jutsu: rola teste/dano (toast), desconta chakra e toca a mídia,
+        // respeitando os toggles da engrenagem (jutsuCfg).
+        playJutsu(j) {
+            const lines = [];
+
+            if (this.jutsuCfg.test && j.test) {
+                const r = this.evalDice(j.test);
+                if (r.ok) lines.push({ label: 'Teste', expr: r.expr, total: r.total });
+            }
+            if (this.jutsuCfg.damage && j.damage) {
+                const r = this.evalDice(j.damage);
+                if (r.ok) lines.push({ label: 'Dano', expr: r.expr, total: r.total });
+            }
+
+            let chakraSpent = 0;
+            if (this.jutsuCfg.chakra && j.chakra != null) {
+                const cost = parseInt(j.chakra, 10);
+                if (!isNaN(cost) && cost > 0) {
+                    chakraSpent = cost;
+                    this.$wire.adjustChakra(-cost);
+                }
+            }
+
+            if (j.media) this.playMedia(j.media, j.volume);
+
+            if (lines.length || chakraSpent) {
+                clearTimeout(this.roll.timer);
+                this.roll = {
+                    kind: 'jutsu', name: j.name, lines, chakraSpent,
+                    label: '', die: 0, bonus: 0, total: 0, visible: true,
+                    timer: setTimeout(() => { this.roll.visible = false; }, 6000),
+                };
+            }
+        },
+
+        playMedia(url, volume) {
+            try {
+                if (this.jutsuMedia) { this.jutsuMedia.pause(); }
+                const isVideo = /\.(mp4|webm|mov|ogv)$/i.test(url);
+                const el = document.createElement(isVideo ? 'video' : 'audio');
+                el.src = url;
+                el.volume = Math.min(1, Math.max(0, (parseInt(volume, 10) || 100) / 100));
+                el.play().catch(() => {});
+                this.jutsuMedia = el;
+            } catch (e) { /* mídia indisponível — ignora */ }
+        },
+
         init() {
+            // Configuração de uso de jutsu, persistida por ficha
+            const savedCfg = localStorage.getItem('jutsucfg_' + this.cid);
+            if (savedCfg) {
+                try { this.jutsuCfg = { ...this.jutsuCfg, ...JSON.parse(savedCfg) }; } catch (e) {}
+            }
+            this.$watch('jutsuCfg', (v) => {
+                localStorage.setItem('jutsucfg_' + this.cid, JSON.stringify(v));
+            });
+
             this.$wire.on('level-up', ({ hp, chakra }) => {
                 this.levelAlert = { visible: true, hp, chakra };
             });
@@ -210,6 +277,7 @@ function characterSheet(cid) {
 <div
     class="flex h-screen overflow-hidden"
     x-data="characterSheet({{ $characterId }})"
+    x-on:use-jutsu.window="playJutsu($event.detail)"
 >
 
     {{-- ===== COLUNA ESQUERDA (fixa, rolável internamente) ===== --}}
@@ -884,27 +952,58 @@ function characterSheet(cid) {
         @click="roll.visible = false"
     >
         <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl px-5 py-4 min-w-48 cursor-pointer">
-            <p class="text-xs text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
-                🎲 <span x-text="roll.label"></span>
-            </p>
-            <div class="flex items-end gap-2">
-                <div class="text-center">
-                    <p class="text-[10px] text-gray-500 mb-0.5">dado</p>
-                    <span class="text-2xl font-bold"
-                        :class="roll.die === 20 ? 'text-amber-400' : roll.die === 1 ? 'text-red-500' : 'text-white'"
-                        x-text="roll.die"></span>
+            {{-- Rolagem de atributo/perícia (d20 + bônus) --}}
+            <template x-if="roll.kind === 'attr'">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                        🎲 <span x-text="roll.label"></span>
+                    </p>
+                    <div class="flex items-end gap-2">
+                        <div class="text-center">
+                            <p class="text-[10px] text-gray-500 mb-0.5">dado</p>
+                            <span class="text-2xl font-bold"
+                                :class="roll.die === 20 ? 'text-amber-400' : roll.die === 1 ? 'text-red-500' : 'text-white'"
+                                x-text="roll.die"></span>
+                        </div>
+                        <span class="text-gray-500 text-lg mb-0.5">+</span>
+                        <div class="text-center">
+                            <p class="text-[10px] text-gray-500 mb-0.5">bônus</p>
+                            <span class="text-2xl font-bold text-gray-300" x-text="roll.bonus"></span>
+                        </div>
+                        <span class="text-gray-500 text-lg mb-0.5">=</span>
+                        <div class="text-center">
+                            <p class="text-[10px] text-gray-500 mb-0.5">total</p>
+                            <span class="text-3xl font-black text-amber-400" x-text="roll.total"></span>
+                        </div>
+                    </div>
                 </div>
-                <span class="text-gray-500 text-lg mb-0.5">+</span>
-                <div class="text-center">
-                    <p class="text-[10px] text-gray-500 mb-0.5">bônus</p>
-                    <span class="text-2xl font-bold text-gray-300" x-text="roll.bonus"></span>
+            </template>
+
+            {{-- Uso de jutsu (teste/dano + chakra) --}}
+            <template x-if="roll.kind === 'jutsu'">
+                <div class="min-w-56" dusk="jutsu-toast">
+                    <p class="text-xs text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
+                        🌀 <span x-text="roll.name"></span>
+                    </p>
+                    <div class="space-y-1.5">
+                        <template x-for="(line, i) in roll.lines" :key="i">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-[10px] uppercase tracking-widest"
+                                    :class="line.label === 'Dano' ? 'text-red-400' : 'text-gray-500'"
+                                    x-text="line.label"></span>
+                                <span class="font-mono text-[10px] text-gray-500 flex-1 truncate text-right" x-text="line.expr"></span>
+                                <span class="text-2xl font-black flex-shrink-0"
+                                    :class="line.label === 'Dano' ? 'text-red-400' : 'text-amber-400'"
+                                    x-text="line.total"></span>
+                            </div>
+                        </template>
+                        <p x-show="roll.chakraSpent > 0" class="text-[11px] text-blue-400 pt-1 border-t border-gray-700">
+                            chakra <span class="font-bold" x-text="'−' + roll.chakraSpent"></span>
+                        </p>
+                    </div>
                 </div>
-                <span class="text-gray-500 text-lg mb-0.5">=</span>
-                <div class="text-center">
-                    <p class="text-[10px] text-gray-500 mb-0.5">total</p>
-                    <span class="text-3xl font-black text-amber-400" x-text="roll.total"></span>
-                </div>
-            </div>
+            </template>
+
             <p class="text-[10px] text-gray-600 mt-2 text-right">clique para fechar</p>
         </div>
     </div>

@@ -12,12 +12,13 @@ class Jutsu extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'name', 'image', 'tags',
-        'chakra_cost', 'actions', 'area_range', 'target', 'description', 'infos',
+        'user_id', 'name', 'image', 'media', 'volume', 'tags',
+        'chakra_cost', 'test_dice', 'damage_dice', 'actions', 'area_range', 'target', 'description', 'infos',
     ];
 
     protected $casts = [
         'tags' => 'array',
+        'volume' => 'integer',
     ];
 
     /** Criador/dono do jutsu */

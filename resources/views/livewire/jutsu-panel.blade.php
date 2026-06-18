@@ -4,6 +4,32 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest">Jutsus</h2>
             <div class="flex items-center gap-2">
+                {{-- Engrenagem: configura o que acontece ao usar um jutsu --}}
+                <div class="relative" x-data="{ cfgOpen: false }">
+                    <button type="button" @click="cfgOpen = !cfgOpen" dusk="jutsu-config"
+                        title="Configurações de uso"
+                        class="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">⚙</button>
+                    <div x-show="cfgOpen" x-cloak @click.outside="cfgOpen = false"
+                        x-transition.opacity
+                        class="absolute right-0 mt-1 w-52 bg-gray-800 border border-gray-600 rounded-lg shadow-2xl p-3 z-50 space-y-2">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Ao usar o jutsu</p>
+                        <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                            <input type="checkbox" x-model="jutsuCfg.chakra" dusk="cfg-chakra"
+                                class="rounded border-gray-600 bg-gray-900 text-amber-500 focus:ring-0 focus:ring-offset-0">
+                            Descontar chakra
+                        </label>
+                        <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                            <input type="checkbox" x-model="jutsuCfg.test" dusk="cfg-test"
+                                class="rounded border-gray-600 bg-gray-900 text-amber-500 focus:ring-0 focus:ring-offset-0">
+                            Rolar teste
+                        </label>
+                        <label class="flex items-center gap-2 text-xs text-gray-300 cursor-pointer">
+                            <input type="checkbox" x-model="jutsuCfg.damage" dusk="cfg-damage"
+                                class="rounded border-gray-600 bg-gray-900 text-amber-500 focus:ring-0 focus:ring-offset-0">
+                            Rolar dano
+                        </label>
+                    </div>
+                </div>
                 <button type="button" wire:click="$set('view', 'browse')"
                     dusk="jutsu-browse"
                     class="px-2.5 py-1 text-[11px] font-medium rounded bg-gray-700 hover:bg-gray-600 text-gray-200 transition-colors">
@@ -120,6 +146,32 @@
             </div>
             @error('image') <p class="text-[10px] text-red-400">{{ $message }}</p> @enderror
 
+            {{-- Áudio/Vídeo (toca ao usar o jutsu) --}}
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Som / vídeo <span class="text-gray-600 normal-case">(toca ao usar)</span></label>
+                <div class="flex items-center gap-3">
+                    <label class="px-2.5 py-1 text-[11px] font-medium rounded bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer transition-colors flex-shrink-0">
+                        {{ $mediaPath || $media ? 'Trocar arquivo' : 'Adicionar arquivo' }}
+                        <input type="file" class="hidden" wire:model="media" accept="audio/*,video/*" dusk="jutsu-media">
+                    </label>
+                    @if($media)
+                        <span class="text-[10px] text-green-400 truncate">{{ $media->getClientOriginalName() }}</span>
+                    @elseif($mediaPath)
+                        <span class="text-[10px] text-gray-400 truncate">🔊 arquivo atual</span>
+                    @endif
+                    <div wire:loading wire:target="media" class="text-[10px] text-gray-500">enviando…</div>
+                </div>
+                @error('media') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
+
+                {{-- Volume --}}
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="text-[10px] text-gray-500 uppercase tracking-widest">Volume</span>
+                    <input type="range" min="0" max="100" wire:model.live="volume" dusk="jutsu-volume"
+                        class="flex-1 accent-amber-500">
+                    <span class="text-[11px] text-gray-300 w-8 text-right">{{ $volume }}</span>
+                </div>
+            </div>
+
             {{-- Nome --}}
             <div>
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Nome</label>
@@ -158,6 +210,23 @@
                         class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:border-amber-500 focus:ring-0 focus:outline-none">
                 </div>
             </div>
+
+            {{-- Rolagens: dados (teste) e dano --}}
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Dados (teste)</label>
+                    <input type="text" wire:model="test_dice" dusk="jutsu-test-dice" placeholder="ex.: d20+[ninjutsu]"
+                        class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm font-mono focus:border-amber-500 focus:ring-0 focus:outline-none">
+                    @error('test_dice') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Dano</label>
+                    <input type="text" wire:model="damage_dice" dusk="jutsu-damage-dice" placeholder="ex.: 4d6+[forca]"
+                        class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm font-mono focus:border-amber-500 focus:ring-0 focus:outline-none">
+                    @error('damage_dice') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
+                </div>
+            </div>
+            <p class="text-[10px] text-gray-600 -mt-1">Mesma notação da aba Dados — pode referenciar a ficha com <span class="font-mono text-gray-500">[nome]</span>.</p>
 
             {{-- Descrição --}}
             <div>
