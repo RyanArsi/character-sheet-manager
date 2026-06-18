@@ -19,9 +19,20 @@
 @endphp
 <div x-data="{ expanded: false }" class="bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-2 mb-2" dusk="equipment-card-{{ $equipment->id }}">
     {{-- Cabeçalho (sempre visível) — linha enxuta --}}
-    <div class="flex items-center gap-2.5">
-        {{-- Imagem (tamanho limitado, sempre cover) --}}
-        <div class="w-9 h-9 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
+    <div class="flex items-center gap-2">
+        {{-- Expandir/recolher (à esquerda da foto) --}}
+        <button type="button" @click="expanded = !expanded"
+            dusk="equipment-details-{{ $equipment->id }}"
+            title="Detalhes"
+            class="text-gray-500 hover:text-amber-300 text-xs w-4 text-center flex-shrink-0">
+            <span x-show="!expanded">▾</span>
+            <span x-show="expanded" x-cloak>▴</span>
+        </button>
+
+        {{-- Imagem (tamanho limitado, sempre cover; clique também expande) --}}
+        <div @click="expanded = !expanded"
+            title="Detalhes"
+            class="w-9 h-9 rounded-lg overflow-hidden bg-gray-800 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0 cursor-pointer">
             @if($equipment->image)
                 <img src="{{ Storage::url($equipment->image) }}" class="w-full h-full object-cover">
             @else
@@ -29,17 +40,17 @@
             @endif
         </div>
 
-        {{-- Nome --}}
+        {{-- Nome (com mais espaço em relação à foto) --}}
         @if($mode === 'assigned')
             <button type="button" @click="$dispatch('use-jutsu', @js($equipmentPayload))"
                 dusk="equipment-use-{{ $equipment->id }}"
                 title="Usar equipamento (rola dados, toca som)"
-                class="flex-1 min-w-0 text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1 truncate">
+                class="flex-1 min-w-0 ml-2 text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1 truncate">
                 <span class="truncate">{{ $equipment->name }}</span>
                 @if($equipment->media)<span class="text-[10px] text-gray-500 flex-shrink-0">🔊</span>@endif
             </button>
         @else
-            <h3 class="flex-1 min-w-0 text-sm font-semibold text-white leading-tight flex items-center gap-1 truncate">
+            <h3 class="flex-1 min-w-0 ml-2 text-sm font-semibold text-white leading-tight flex items-center gap-1 truncate">
                 <span class="truncate">{{ $equipment->name }}</span>
                 @if($equipment->media)<span class="text-[10px] text-gray-500 flex-shrink-0">🔊</span>@endif
             </h3>
@@ -67,15 +78,6 @@
             @if($mode === 'in-sheet')
                 <span class="text-[9px] text-green-400 font-medium">✓ na ficha</span>
             @endif
-
-            {{-- Expandir/recolher --}}
-            <button type="button" @click="expanded = !expanded"
-                dusk="equipment-details-{{ $equipment->id }}"
-                title="Detalhes"
-                class="text-gray-500 hover:text-amber-300 text-xs w-4 text-center">
-                <span x-show="!expanded">▾</span>
-                <span x-show="expanded" x-cloak>▴</span>
-            </button>
         </div>
     </div>
 
