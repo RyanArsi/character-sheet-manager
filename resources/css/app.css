@@ -45,3 +45,47 @@
 .training-glow-red {
     animation: glow-red 1.2s ease-in-out infinite;
 }
+
+/* Slider de volume do jutsu — trilho cinza arredondado com bolinha e
+   cor distinta antes/depois do thumb (preenchimento via --pct) */
+.jutsu-range {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(
+        to right,
+        #9ca3af 0%, #9ca3af var(--pct, 0%),
+        #374151 var(--pct, 0%), #374151 100%
+    );
+    outline: none;
+    cursor: pointer;
+}
+.jutsu-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #e5e7eb;
+    border: 2px solid #9ca3af;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.jutsu-range::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background: #e5e7eb;
+    border: 2px solid #9ca3af;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.jutsu-range::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: #374151;
+}
+.jutsu-range::-moz-range-progress {
+    height: 6px;
+    border-radius: 9999px;
+    background: #9ca3af;
+}

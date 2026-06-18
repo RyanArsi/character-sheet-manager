@@ -164,11 +164,14 @@
                 @error('media') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
 
                 {{-- Volume --}}
-                <div class="flex items-center gap-2 mt-2">
+                <div class="flex items-center gap-2 mt-2" x-data="{ vol: @js((int) $volume) }">
                     <span class="text-[10px] text-gray-500 uppercase tracking-widest">Volume</span>
-                    <input type="range" min="0" max="100" wire:model.live="volume" dusk="jutsu-volume"
-                        class="flex-1 accent-amber-500">
-                    <span class="text-[11px] text-gray-300 w-8 text-right">{{ $volume }}</span>
+                    <input type="range" min="0" max="100" dusk="jutsu-volume"
+                        x-model.number="vol"
+                        @change="$wire.set('volume', vol)"
+                        :style="`--pct: ${vol}%`"
+                        class="jutsu-range flex-1">
+                    <span class="text-[11px] text-gray-300 w-8 text-right" x-text="vol"></span>
                 </div>
             </div>
 

@@ -12,7 +12,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // O ddev serve a app atrás de um proxy reverso. Confiar nos cabeçalhos
+        // X-Forwarded-* faz o Request reportar o esquema https real, o que corrige
+        // a geração de URLs de assets (Mixed Content) e a validação das URLs
+        // assinadas de upload do Livewire (que de outro modo davam 401).
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
