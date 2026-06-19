@@ -1,8 +1,9 @@
 @push('scripts')
 <script>
-function characterSheet(cid) {
+function characterSheet(cid, campaigns) {
     return {
         cid,
+        campaigns: campaigns || [],
         dirty: false,
         saveTimer: null,
         savedMsg: false,
@@ -35,6 +36,20 @@ function characterSheet(cid) {
         diceResult: null,
         diceLog: [],
 
+        // Compartilhamento de eventos com a campanha (feed ao vivo)
+        shareCampaignId: '',   // '' = não compartilhar
+        feed: [],
+        feedChannel: null,
+
+        // Iniciativa compartilhada da campanha
+        initiative: { entries: [], current_id: null, round: 1, conditions: [] },
+        initMod: 0,            // modificador opcional do jogador na iniciativa
+        npcName: '',
+        npcRoll: 10,
+        condName: '',
+        condTarget: '',
+        condTurns: 1,
+
         rollDice(label, bonus) {
             const die = Math.floor(Math.random() * 20) + 1;
             bonus = parseInt(bonus) || 0;
@@ -50,6 +65,10 @@ function characterSheet(cid) {
 
             this.rollHistory.unshift({ label, die, bonus, total, time });
             if (this.rollHistory.length > 50) this.rollHistory.pop();
+
+            const sb = bonus ? (bonus > 0 ? ' +' + bonus : ' ' + bonus) : '';
+            this.shareRoll(label + ' → ' + total + ' (d20: ' + die + sb + ')',
+                { kind: 'attr', label, die, bonus, total });
         },
 
         // Resolve um nome de atributo/especialização/perícia para seu valor.
@@ -159,6 +178,9 @@ function characterSheet(cid) {
             this.diceResult = { expr: r.expr, groups: r.groups, total: r.total, time, showBreakdown: r.showBreakdown };
             this.diceLog.unshift(this.diceResult);
             if (this.diceLog.length > 30) this.diceLog.pop();
+
+            this.shareRoll('rolou ' + r.expr + ' → ' + r.total,
+                { kind: 'expr', expr: r.expr, total: r.total });
         },
 
         // Usa um jutsu: rola teste/dano (toast), desconta chakra e toca a mídia,
@@ -193,6 +215,12 @@ function characterSheet(cid) {
                     label: '', die: 0, bonus: 0, total: 0, visible: true,
                     timer: setTimeout(() => { this.roll.visible = false; }, 6000),
                 };
+
+                const parts = lines.map((l) => l.label + ' ' + l.total);
+                if (chakraSpent) parts.push('−' + chakraSpent + ' chakra');
+                const suffix = parts.length ? ' — ' + parts.join(', ') : '';
+                this.shareRoll('usou ' + j.name + suffix,
+                    { kind: 'jutsu', name: j.name, lines, chakraSpent });
             }
         },
 
@@ -235,9 +263,136 @@ function characterSheet(cid) {
             clearTimeout(r.timer);
             r.visible = true;
             r.timer = setTimeout(() => { this.roll.visible = false; }, 6000);
+
+            const newTotal = r.kind === 'attr'
+                ? r.total
+                : (r.lines.find((l) => l.label === 'Teste') || r.lines[0]).total;
+            this.shareRoll((sign > 0 ? 'Vantagem' : 'Desvantagem') + ' +1d6 (' + d6 + ') → ' + newTotal,
+                { kind: 'adv', sign, d6, total: newTotal });
+        },
+
+        // Envia um evento ao servidor, que grava e transmite para a campanha selecionada.
+        shareRoll(message, detail) {
+            const id = parseInt(this.shareCampaignId);
+            if (!id) return;
+            this.$wire.shareEvent(id, message, detail || {});
+        },
+
+        // (Re)assina o canal privado da campanha escolhida para receber o feed ao vivo.
+        subscribeFeed() {
+            if (this.feedChannel) {
+                window.Echo.leave('campaign.' + this.feedChannel);
+                this.feedChannel = null;
+            }
+            this.feed = [];
+            this.initiative = { entries: [], current_id: null, round: 1, conditions: [] };
+            const id = parseInt(this.shareCampaignId);
+            if (!id || !window.Echo) return;
+
+            this.feedChannel = id;
+            window.Echo.private('campaign.' + id)
+                .listen('.CampaignEventBroadcast', (e) => {
+                    this.feed.unshift(e);
+                    if (this.feed.length > 100) this.feed.pop();
+                })
+                .listen('.CampaignInitiativeUpdated', (e) => {
+                    if (e.state && parseInt(this.shareCampaignId) === id) this.initiative = e.state;
+                });
+
+            // Carrega o estado atual da iniciativa ao entrar na campanha
+            this.$wire.getInitiative(id).then((st) => {
+                if (st && parseInt(this.shareCampaignId) === id) this.initiative = st;
+            });
+        },
+
+        // ---- Iniciativa ----
+        get isMaster() {
+            const c = this.campaigns.find((x) => x.id === parseInt(this.shareCampaignId));
+            return !!(c && c.is_master);
+        },
+
+        rollInitiative() {
+            const agi = parseInt(this.$wire.get('agilidade')) || 0;
+            const mod = parseInt(this.initMod) || 0;
+            const die = Math.floor(Math.random() * 20) + 1;
+            const total = die + agi + mod;
+
+            clearTimeout(this.roll.timer);
+            this.roll = {
+                kind: 'attr', label: 'Iniciativa', die, bonus: agi + mod, total, visible: true,
+                timer: setTimeout(() => { this.roll.visible = false; }, 6000),
+            };
+
+            const id = parseInt(this.shareCampaignId);
+            if (!id) return;
+            const modTxt = mod ? (mod > 0 ? ' +' + mod : ' ' + mod) : '';
+            this.shareRoll('Iniciativa → ' + total + ' (d20: ' + die + ' +' + agi + ' agi' + modTxt + ')',
+                { kind: 'init', die, agi, mod, total });
+            this.$wire.addInitiativeEntry(id, total).then((st) => { if (st) this.initiative = st; });
+        },
+
+        passTurn() {
+            const id = parseInt(this.shareCampaignId);
+            if (!id || !this.isMaster) return;
+            this.$wire.passTurn(id).then((st) => { if (st) this.initiative = st; });
+        },
+
+        addNpcEntry() {
+            const id = parseInt(this.shareCampaignId);
+            if (!id || !this.isMaster || !this.npcName.trim()) return;
+            this.$wire.addNpc(id, this.npcName.trim(), parseInt(this.npcRoll) || 0).then((st) => {
+                if (st) this.initiative = st;
+                this.npcName = ''; this.npcRoll = 10;
+            });
+        },
+
+        removeInitEntry(entryId) {
+            const id = parseInt(this.shareCampaignId);
+            if (!id) return;
+            this.$wire.removeEntry(id, entryId).then((st) => { if (st) this.initiative = st; });
+        },
+
+        clearInit() {
+            const id = parseInt(this.shareCampaignId);
+            if (!id || !this.isMaster) return;
+            if (!confirm('Limpar a iniciativa e zerar as rodadas?')) return;
+            this.$wire.clearInitiative(id).then((st) => { if (st) this.initiative = st; });
+        },
+
+        addCond() {
+            const id = parseInt(this.shareCampaignId);
+            if (!id || !this.condName.trim() || !this.condTarget) return;
+            this.$wire.addCondition(id, this.condName.trim(), this.condTarget, parseInt(this.condTurns) || 1).then((st) => {
+                if (st) this.initiative = st;
+                this.condName = ''; this.condTarget = ''; this.condTurns = 1;
+            });
+        },
+
+        removeCond(condId) {
+            const id = parseInt(this.shareCampaignId);
+            if (!id) return;
+            this.$wire.removeCondition(id, condId).then((st) => { if (st) this.initiative = st; });
+        },
+
+        entryConditions(entryId) {
+            return (this.initiative.conditions || []).filter((c) => c.target_id === entryId);
+        },
+
+        entryName(entryId) {
+            const e = (this.initiative.entries || []).find((x) => x.id === entryId);
+            return e ? e.name : '—';
         },
 
         init() {
+            // Campanha selecionada para compartilhar, persistida por ficha
+            const savedShare = localStorage.getItem('share_' + this.cid);
+            if (savedShare) this.shareCampaignId = savedShare;
+            this.$watch('shareCampaignId', (v) => {
+                localStorage.setItem('share_' + this.cid, v ?? '');
+                this.subscribeFeed();
+            });
+            this.subscribeFeed();
+
             // Configuração de uso de jutsu, persistida por ficha
             const savedCfg = localStorage.getItem('jutsucfg_' + this.cid);
             if (savedCfg) {
@@ -305,7 +460,7 @@ function characterSheet(cid) {
 
 <div
     class="flex h-screen overflow-hidden"
-    x-data="characterSheet({{ $characterId }})"
+    x-data="characterSheet({{ $characterId }}, @js($campaignOptions))"
     x-on:use-jutsu.window="playJutsu($event.detail)"
 >
 
@@ -703,11 +858,173 @@ function characterSheet(cid) {
             <button type="button" @click="applyAdvantage(-1)" dusk="disadvantage-btn"
                 title="Desvantagem: rola 1d6 e subtrai do teste exibido"
                 class="w-7 h-7 rounded-md bg-red-600 hover:bg-red-500 active:translate-y-px text-white font-black text-sm flex items-center justify-center ring-1 ring-red-300/40 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.4),inset_0_-2px_3px_rgba(0,0,0,0.35),0_2px_4px_rgba(0,0,0,0.45)]">6</button>
+
+            {{-- Iniciativa: d20 + agilidade + modificador opcional --}}
+            <div class="flex items-center gap-1.5 pl-2 ml-1 border-l border-gray-700">
+                <button type="button" @click="rollInitiative()" dusk="initiative-btn"
+                    title="Rolar iniciativa (d20 + agilidade + modificador). Entra na ordem da campanha selecionada."
+                    class="px-2.5 h-7 rounded-md bg-indigo-600 hover:bg-indigo-500 active:translate-y-px text-white text-xs font-bold flex items-center gap-1 ring-1 ring-indigo-300/40 transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_2px_4px_rgba(0,0,0,0.4)]">
+                    ⚡ Iniciativa
+                </button>
+                <input type="number" x-model.number="initMod" title="Modificador de iniciativa"
+                    class="w-12 h-7 text-center bg-gray-800 border border-gray-700 rounded text-xs text-gray-200 focus:border-indigo-400 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none">
+            </div>
         </div>
 
-        {{-- Miolo central — controle de turnos, condições, etc --}}
-        <div class="flex-1 overflow-y-auto flex items-center justify-center text-gray-700 text-sm">
-            Controle de turnos &amp; condições — em construção
+        {{-- Miolo central — iniciativa/turnos (esquerda) + feed da campanha (direita, 30%) --}}
+        <div class="flex-1 min-h-0 flex">
+
+          {{-- ===== Painel de iniciativa, turnos e condições ===== --}}
+          <div class="flex-1 min-w-0 flex flex-col overflow-y-auto sidebar-scroll p-4">
+
+            <template x-if="!shareCampaignId">
+                <div class="m-auto text-center text-gray-600 text-xs px-6">
+                    Selecione uma campanha no painel à direita para usar a iniciativa compartilhada.
+                </div>
+            </template>
+
+            <template x-if="shareCampaignId">
+              <div class="space-y-4">
+
+                {{-- Cabeçalho: rodada + controles do mestre --}}
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest">Iniciativa</h3>
+                        <span class="text-[11px] text-gray-300 bg-gray-800 rounded-full px-2 py-0.5">Rodada <span class="font-bold" x-text="initiative.round"></span></span>
+                    </div>
+                    <div class="flex items-center gap-1.5" x-show="isMaster" x-cloak>
+                        <button type="button" @click="passTurn()" dusk="pass-turn-btn"
+                            class="px-2.5 h-7 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold">Passar turno ▸</button>
+                        <button type="button" @click="clearInit()" title="Limpar iniciativa e zerar rodadas"
+                            class="px-2 h-7 rounded-md bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs">Limpar</button>
+                    </div>
+                </div>
+
+                {{-- Ordem da iniciativa --}}
+                <div class="space-y-1.5">
+                    <template x-if="!initiative.entries.length">
+                        <p class="text-xs text-gray-600">Ninguém na iniciativa ainda. Use o botão “⚡ Iniciativa” acima.</p>
+                    </template>
+                    <template x-for="(e, i) in initiative.entries" :key="e.id">
+                        <div class="flex items-center gap-2 rounded-lg px-2.5 py-1.5 border transition-colors"
+                            :class="e.id === initiative.current_id ? 'border-red-500/60 bg-red-500/10' : 'border-gray-700 bg-gray-800/50'">
+                            {{-- bolinha vermelha = turno atual --}}
+                            <span class="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                :class="e.id === initiative.current_id ? 'bg-red-500 animate-pulse' : 'bg-gray-700'"></span>
+                            <span class="text-[10px] text-gray-500 w-4 text-right flex-shrink-0" x-text="i + 1"></span>
+                            <span class="text-sm text-gray-100 truncate" x-text="e.name"></span>
+                            <span x-show="e.is_npc" class="text-[9px] uppercase font-bold text-rose-300 bg-rose-900/40 rounded px-1 py-0.5 flex-shrink-0">NPC</span>
+                            {{-- indicador de condições no participante --}}
+                            <template x-for="c in entryConditions(e.id)" :key="c.id">
+                                <span class="text-[9px] text-purple-200 bg-purple-900/50 rounded px-1 py-0.5 flex-shrink-0"
+                                    :title="c.name + ' — ' + c.turns_left + ' turno(s)'">
+                                    <span x-text="c.name"></span><span class="opacity-60" x-text="' ' + c.turns_left"></span>
+                                </span>
+                            </template>
+                            <span class="flex-1"></span>
+                            <span class="text-sm font-bold text-amber-400 w-7 text-right flex-shrink-0" x-text="e.roll"></span>
+                            <button type="button" @click="removeInitEntry(e.id)"
+                                x-show="isMaster || e.user_id === {{ auth()->id() }}"
+                                title="Remover da iniciativa"
+                                class="text-gray-600 hover:text-red-400 text-xs flex-shrink-0">✕</button>
+                        </div>
+                    </template>
+                </div>
+
+                {{-- Mestre: adicionar NPC --}}
+                <div x-show="isMaster" x-cloak class="flex items-center gap-1.5">
+                    <input type="text" x-model="npcName" placeholder="Nome do NPC" @keydown.enter="addNpcEntry()"
+                        class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:border-amber-500 focus:ring-0 focus:outline-none">
+                    <input type="number" x-model.number="npcRoll" title="Valor de iniciativa do NPC"
+                        class="w-14 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none">
+                    <button type="button" @click="addNpcEntry()"
+                        class="px-2.5 h-7 rounded-md bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold whitespace-nowrap">+ NPC</button>
+                </div>
+
+                {{-- Condições & eventos --}}
+                <div class="pt-3 border-t border-gray-700">
+                    <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">Condições &amp; Eventos</h3>
+
+                    <div class="flex items-center gap-1.5 mb-2">
+                        <input type="text" x-model="condName" placeholder="Nome da condição" @keydown.enter="addCond()"
+                            class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:border-amber-500 focus:ring-0 focus:outline-none">
+                        <select x-model="condTarget"
+                            class="bg-gray-800 border border-gray-700 rounded px-1 py-1 text-xs text-gray-200 max-w-[8rem] focus:border-amber-500 focus:ring-0 focus:outline-none">
+                            <option value="">está em…</option>
+                            <template x-for="e in initiative.entries" :key="e.id">
+                                <option :value="e.id" x-text="e.name"></option>
+                            </template>
+                        </select>
+                        <input type="number" min="1" x-model.number="condTurns" title="Turnos para acabar"
+                            class="w-12 bg-gray-800 border border-gray-700 rounded px-1 py-1 text-xs text-gray-200 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none">
+                        <button type="button" @click="addCond()"
+                            class="px-2.5 h-7 rounded-md bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold">+</button>
+                    </div>
+
+                    <template x-if="!initiative.conditions.length">
+                        <p class="text-xs text-gray-600">Nenhuma condição ativa.</p>
+                    </template>
+                    <div class="space-y-1">
+                        <template x-for="c in initiative.conditions" :key="c.id">
+                            <div class="flex items-center gap-2 rounded-lg px-2.5 py-1.5 bg-purple-900/20 border border-purple-800/40">
+                                <span class="text-xs font-semibold text-purple-200 truncate" x-text="c.name"></span>
+                                <span class="text-[11px] text-gray-500">em</span>
+                                <span class="text-xs text-gray-200 truncate flex-1" x-text="entryName(c.target_id)"></span>
+                                <span class="text-[11px] text-purple-300 whitespace-nowrap" x-text="c.turns_left + ' turno(s)'"></span>
+                                <button type="button" @click="removeCond(c.id)"
+                                    class="text-gray-600 hover:text-red-400 text-xs flex-shrink-0">✕</button>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+              </div>
+            </template>
+
+          </div>
+
+          {{-- ===== Painel do feed da campanha (30%) ===== --}}
+          <div class="w-[30%] min-w-[16rem] flex flex-col border-l border-gray-700 bg-gray-900/20">
+
+            {{-- Seletor: em qual campanha compartilhar os eventos --}}
+            <div class="flex items-center gap-2 px-4 py-2.5 bg-gray-900/40 border-b border-gray-700 flex-shrink-0">
+                <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 5h16M4 12h16M4 19h10"/>
+                </svg>
+                <span class="text-xs text-gray-400 whitespace-nowrap">Compartilhar em:</span>
+                <select x-model="shareCampaignId" dusk="share-campaign"
+                    class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:border-amber-500 focus:ring-0 focus:outline-none">
+                    <option value="">Não compartilhar</option>
+                    @foreach($campaignOptions as $opt)
+                        <option value="{{ $opt['id'] }}">{{ $opt['name'] }}</option>
+                    @endforeach
+                </select>
+                <span x-show="shareCampaignId" x-cloak
+                    class="flex items-center gap-1 text-[10px] text-green-400 whitespace-nowrap" title="Transmitindo ao vivo">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> ao vivo
+                </span>
+            </div>
+
+            {{-- Feed ao vivo --}}
+            <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-2 sidebar-scroll">
+                <template x-if="!feed.length">
+                    <div class="text-center text-gray-600 text-xs pt-12 px-6"
+                        x-text="shareCampaignId
+                            ? 'Conectado. As rolagens e habilidades usadas aparecerão aqui para toda a campanha.'
+                            : @js($campaignOptions ? 'Selecione uma campanha acima para ver e compartilhar os eventos de dados.' : 'Esta ficha não está em nenhuma campanha.')"></div>
+                </template>
+                <template x-for="(ev, i) in feed" :key="ev.id ?? i">
+                    <div class="bg-gray-800/70 border border-gray-700 rounded-lg px-3 py-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-semibold text-amber-400 truncate" x-text="ev.actor"></span>
+                            <span class="text-[10px] text-gray-500 flex-shrink-0" x-text="ev.time"></span>
+                        </div>
+                        <div class="text-xs text-gray-200 mt-0.5 break-words" x-text="ev.message"></div>
+                    </div>
+                </template>
+            </div>
+
+          </div>
         </div>
 
     </main>

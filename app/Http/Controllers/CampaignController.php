@@ -50,7 +50,21 @@ class CampaignController extends Controller
 
         $isOwner = $campaign->owner_id === auth()->id();
 
-        return view('campaigns.show', compact('campaign', 'isOwner'));
+        // Últimos eventos para popular o feed antes do tempo real (mais novos primeiro)
+        $events = $campaign->events()
+            ->latest('id')
+            ->limit(50)
+            ->get()
+            ->map(fn ($e) => [
+                'id'      => $e->id,
+                'actor'   => $e->actor,
+                'message' => $e->message,
+                'detail'  => $e->detail,
+                'time'    => $e->created_at?->format('H:i:s'),
+            ])
+            ->values();
+
+        return view('campaigns.show', compact('campaign', 'isOwner', 'events'));
     }
 
     public function regenerateToken(Campaign $campaign): RedirectResponse

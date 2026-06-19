@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Campaign extends Model
@@ -13,8 +14,23 @@ class Campaign extends Model
     use HasFactory;
 
     protected $fillable = [
-        'owner_id', 'name', 'description', 'invite_token',
+        'owner_id', 'name', 'description', 'invite_token', 'initiative',
     ];
+
+    protected $casts = [
+        'initiative' => 'array',
+    ];
+
+    /** Estado inicial vazio do rastreador de iniciativa. */
+    public static function emptyInitiative(): array
+    {
+        return [
+            'entries'    => [],   // [{id, name, roll, is_npc, character_id, user_id}]
+            'current_id' => null, // id da entrada cujo turno é o atual (bolinha vermelha)
+            'round'      => 1,
+            'conditions' => [],   // [{id, name, target_id, turns_left}]
+        ];
+    }
 
     protected static function booted(): void
     {
@@ -50,5 +66,10 @@ class Campaign extends Model
     {
         return $this->belongsToMany(Character::class, 'campaign_characters')
             ->withTimestamps();
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(CampaignEvent::class);
     }
 }

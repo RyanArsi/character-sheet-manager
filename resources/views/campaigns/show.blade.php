@@ -151,6 +151,35 @@
                 </div>
             </div>
 
+            {{-- Feed de eventos ao vivo --}}
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg"
+                x-data="campaignFeed({{ $campaign->id }}, @js($events))" x-init="init()">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800">Eventos ao vivo</h3>
+                        <span class="flex items-center gap-1.5 text-xs text-gray-500">
+                            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> tempo real
+                        </span>
+                    </div>
+
+                    <template x-if="!feed.length">
+                        <p class="text-gray-500 text-sm">Nenhum evento ainda. Rolagens de dados feitas nas fichas aparecerão aqui.</p>
+                    </template>
+
+                    <ul class="space-y-2 max-h-96 overflow-y-auto">
+                        <template x-for="(ev, i) in feed" :key="ev.id ?? i">
+                            <li class="flex items-baseline justify-between gap-3 border border-gray-100 rounded-lg px-3 py-2 bg-gray-50">
+                                <div class="min-w-0">
+                                    <span class="text-sm font-semibold text-amber-700" x-text="ev.actor"></span>
+                                    <span class="text-sm text-gray-700" x-text="' ' + ev.message"></span>
+                                </div>
+                                <span class="text-xs text-gray-400 flex-shrink-0" x-text="ev.time"></span>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+
             {{-- Membros --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6">
@@ -194,4 +223,20 @@
 
         </div>
     </div>
+
+    <script>
+        function campaignFeed(campaignId, initial) {
+            return {
+                feed: initial || [],
+                init() {
+                    if (!window.Echo) return;
+                    window.Echo.private('campaign.' + campaignId)
+                        .listen('.CampaignEventBroadcast', (e) => {
+                            this.feed.unshift(e);
+                            if (this.feed.length > 100) this.feed.pop();
+                        });
+                },
+            };
+        }
+    </script>
 </x-app-layout>
