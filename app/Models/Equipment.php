@@ -17,13 +17,14 @@ class Equipment extends Model
 
     protected $fillable = [
         'user_id', 'name', 'image', 'media', 'volume', 'tags',
-        'test_dice', 'damage_dice', 'space', 'description', 'infos',
+        'test_dice', 'damage_dice', 'space', 'description', 'infos', 'hidden',
     ];
 
     protected $casts = [
         'tags' => 'array',
         'volume' => 'integer',
         'space' => 'integer',
+        'hidden' => 'boolean',
     ];
 
     /** Criador/dono do equipamento */

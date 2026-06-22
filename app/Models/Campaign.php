@@ -14,11 +14,12 @@ class Campaign extends Model
     use HasFactory;
 
     protected $fillable = [
-        'owner_id', 'name', 'description', 'invite_token', 'initiative',
+        'owner_id', 'name', 'description', 'invite_token', 'initiative', 'combat',
     ];
 
     protected $casts = [
         'initiative' => 'array',
+        'combat'     => 'array',
     ];
 
     /** Estado inicial vazio do rastreador de iniciativa. */
@@ -71,5 +72,17 @@ class Campaign extends Model
     public function events(): HasMany
     {
         return $this->hasMany(CampaignEvent::class);
+    }
+
+    /** Grupos de fichas do mestre (Vilões, NPCs, etc.). */
+    public function sheetGroups(): HasMany
+    {
+        return $this->hasMany(CampaignSheetGroup::class);
+    }
+
+    /** Fichas de NPC/vilão pertencentes a esta campanha (só o mestre vê). */
+    public function npcSheets(): HasMany
+    {
+        return $this->hasMany(Character::class, 'campaign_id');
     }
 }

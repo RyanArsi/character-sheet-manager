@@ -54,6 +54,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Ações (de perícia) criadas pelo usuário (biblioteca pessoal).
+     */
+    public function actions(): HasMany
+    {
+        return $this->hasMany(Action::class)->orderByDesc('updated_at');
+    }
+
+    /**
      * Campanhas das quais o usuário é mestre (dono).
      */
     public function ownedCampaigns(): HasMany

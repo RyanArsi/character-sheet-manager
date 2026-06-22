@@ -9,6 +9,7 @@
 @php
     $talentPayload = [
         'name'   => $talent->name,
+        'type'   => 'talent',
         'test'   => $talent->test_dice,
         'damage' => $talent->damage_dice,
         'chakra' => $talent->chakra_cost,
@@ -54,20 +55,21 @@
 
             {{-- Nome + ações --}}
             <div class="flex items-start justify-between gap-2">
-                @if($mode === 'assigned')
-                    <button type="button" @click="$dispatch('use-jutsu', @js($talentPayload))"
-                        dusk="talent-use-{{ $talent->id }}"
-                        title="Usar talento (rola dados, toca som, desconta chakra)"
-                        class="text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1">
-                        {{ $talent->name }}
-                        @if($talent->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
-                    </button>
-                @else
-                    <h3 class="text-sm font-semibold text-white leading-tight flex items-center gap-1">
-                        {{ $talent->name }}
-                        @if($talent->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
-                    </h3>
-                @endif
+                <div class="flex items-center gap-1.5 min-w-0">
+                    @if($mode === 'assigned')
+                        <button type="button" @click="$dispatch('use-jutsu', @js($talentPayload))"
+                            dusk="talent-use-{{ $talent->id }}"
+                            title="Usar talento (rola dados, desconta chakra)"
+                            class="text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors truncate">
+                            {{ $talent->name }}
+                        </button>
+                    @else
+                        <h3 class="text-sm font-semibold text-white leading-tight truncate">{{ $talent->name }}</h3>
+                    @endif
+                    @if($talent->media)
+                        @include('livewire.partials.media-button', ['url' => $talentPayload['media'], 'volume' => $talentPayload['volume']])
+                    @endif
+                </div>
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     @if($talent->user_id === $authId)
                         <button type="button" wire:click="startEdit({{ $talent->id }})"

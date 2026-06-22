@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Events\CampaignEventBroadcast;
+use App\Events\CampaignMediaBroadcast;
 use App\Events\CampaignInitiativeUpdated;
 use App\Models\Campaign;
 use App\Models\CampaignEvent;
@@ -28,16 +29,19 @@ class CharacterSheet extends Component
     #[Rule('nullable|string|max:100')]
     public ?string $cla = '';
 
-    public int $level = 1;
+    // Campos numéricos editáveis ficam SEM tipo estrito: ao apagar o input,
+    // o Livewire recebe "" e um `public int` lançaria PropertyNotFoundException.
+    // O valor vazio é normalizado para 0 em updated() (e o nível, para no mínimo 1).
+    public $level = 1;
     public int $xp = 0;
 
     // Guarda o nível anterior para detectar quando o personagem sobe de nível
     public int $previousLevel = 1;
 
-    public int $hp_current = 20;
-    public int $hp_max = 20;
-    public int $chakra_current = 20;
-    public int $chakra_max = 20;
+    public $hp_current = 20;
+    public $hp_max = 20;
+    public $chakra_current = 20;
+    public $chakra_max = 20;
 
     public int $forca = 0;
     public int $agilidade = 0;
@@ -64,9 +68,9 @@ class CharacterSheet extends Component
 
         $this->characterId = $character->id;
 
-        $this->campaignOptions = $character->campaigns()
+        $this->campaignOptions = Campaign::whereIn('id', $character->relatedCampaignIds())
             ->orderBy('name')
-            ->get(['campaigns.id', 'campaigns.name', 'campaigns.owner_id'])
+            ->get(['id', 'name', 'owner_id'])
             ->map(fn ($c) => [
                 'id'        => $c->id,
                 'name'      => $c->name,
@@ -96,10 +100,34 @@ class CharacterSheet extends Component
             ->toArray();
     }
 
-    // Chamado pelo Alpine após cada round-trip — sincroniza localStorage com estado do servidor
-    public function updated(): void
+    // Chamado pelo Alpine após cada round-trip — normaliza campos numéricos vazios
+    // para 0 e sincroniza o localStorage com o estado do servidor.
+    public function updated($property = null, $value = null): void
     {
+        $this->normalizeNumeric($property);
+
         $this->dispatch('sync-storage', state: $this->currentState());
+    }
+
+    /** Apagar um input numérico envia "" — vale 0 (vida, chakra e valores de perícia). */
+    protected function normalizeNumeric(?string $property): void
+    {
+        $zeroable = ['hp_current', 'hp_max', 'chakra_current', 'chakra_max'];
+
+        if (in_array($property, $zeroable, true)) {
+            $this->{$property} = is_numeric($this->{$property}) ? (int) $this->{$property} : 0;
+
+            return;
+        }
+
+        // Valor de uma perícia (skills.N.value)
+        if ($property !== null && preg_match('/^skills\.(\d+)\.value$/', $property, $m)) {
+            $i = (int) $m[1];
+            if (isset($this->skills[$i])) {
+                $v = $this->skills[$i]['value'];
+                $this->skills[$i]['value'] = is_numeric($v) ? (int) $v : 0;
+            }
+        }
     }
 
     // Restaura estado vindo do localStorage (chamado pelo Alpine no init)
@@ -222,12 +250,14 @@ class CharacterSheet extends Component
 
     public function adjustHp(int $delta): void
     {
-        $this->hp_current = max(0, min($this->hp_max, $this->hp_current + $delta));
+        // Permite ultrapassar o máximo (ex.: vida temporária); apenas não desce de 0.
+        $this->hp_current = max(0, $this->hp_current + $delta);
     }
 
     public function adjustChakra(int $delta): void
     {
-        $this->chakra_current = max(0, min($this->chakra_max, $this->chakra_current + $delta));
+        // Permite ultrapassar o máximo; apenas não desce de 0.
+        $this->chakra_current = max(0, $this->chakra_current + $delta);
     }
 
     public function uploadAvatar(): void
@@ -272,7 +302,7 @@ class CharacterSheet extends Component
     {
         $character = Character::find($this->characterId);
         abort_unless($character && $character->canBeManagedBy(auth()->user()), 403);
-        abort_unless($character->campaigns()->whereKey($campaignId)->exists(), 403);
+        abort_unless($character->isInCampaign($campaignId), 403);
 
         $event = CampaignEvent::create([
             'campaign_id'  => $campaignId,
@@ -286,6 +316,29 @@ class CharacterSheet extends Component
         broadcast(new CampaignEventBroadcast($event));
     }
 
+    /**
+     * Pede que toda a campanha reproduza uma mídia (som/vídeo de um jutsu, etc.).
+     * Transmite apenas a URL pública — o arquivo não trafega pelo WebSocket.
+     * Não persiste: é só um gatilho de reprodução.
+     */
+    public function shareMedia(int $campaignId, string $url, int $volume = 100): void
+    {
+        $character = Character::find($this->characterId);
+        abort_unless($character && $character->canBeManagedBy(auth()->user()), 403);
+        abort_unless($character->isInCampaign($campaignId), 403);
+
+        $url = trim($url);
+        if ($url === '') {
+            return;
+        }
+
+        broadcast(new CampaignMediaBroadcast(
+            $campaignId,
+            mb_substr($url, 0, 2048),
+            max(0, min(100, $volume)),
+        ));
+    }
+
     // =====================================================================
     //  Iniciativa — estado compartilhado por campanha (rastreador de turnos)
     // =====================================================================
@@ -295,7 +348,7 @@ class CharacterSheet extends Component
     {
         $character = Character::find($this->characterId);
         abort_unless($character && $character->canBeManagedBy(auth()->user()), 403);
-        abort_unless($character->campaigns()->whereKey($campaignId)->exists(), 403);
+        abort_unless($character->isInCampaign($campaignId), 403);
 
         return Campaign::findOrFail($campaignId);
     }

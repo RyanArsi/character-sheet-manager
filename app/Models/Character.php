@@ -13,7 +13,7 @@ class Character extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id', 'name', 'race', 'village', 'cla', 'level', 'xp',
+        'user_id', 'campaign_id', 'sheet_group_id', 'name', 'race', 'village', 'cla', 'level', 'xp',
         'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
         'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
         'ninjutsu', 'genjutsu', 'taijutsu',
@@ -52,6 +52,18 @@ class Character extends Model
         return $this->hasMany(CharacterSkill::class);
     }
 
+    /** Notas livres desta ficha (aba Notas). Nome evita conflito com a coluna `notes`. */
+    public function noteEntries(): HasMany
+    {
+        return $this->hasMany(Note::class);
+    }
+
+    /** Testes salvos desta ficha (aba Testes) — rolagens rápidas de teste/dano. */
+    public function tests(): HasMany
+    {
+        return $this->hasMany(CharacterTest::class);
+    }
+
     /** Jutsus atribuídos a esta ficha */
     public function jutsus(): BelongsToMany
     {
@@ -74,10 +86,51 @@ class Character extends Model
             ->withTimestamps();
     }
 
+    /** Ações (de perícia) atribuídas a esta ficha */
+    public function actions(): BelongsToMany
+    {
+        return $this->belongsToMany(Action::class, 'character_action')
+            ->withTimestamps();
+    }
+
     public function campaigns(): BelongsToMany
     {
         return $this->belongsToMany(Campaign::class, 'campaign_characters')
             ->withTimestamps();
+    }
+
+    /** Campanha dona desta ficha de NPC (null = ficha normal de jogador). */
+    public function ownerCampaign(): BelongsTo
+    {
+        return $this->belongsTo(Campaign::class, 'campaign_id');
+    }
+
+    /** Grupo da ficha de NPC (ex.: Vilões, NPCs). */
+    public function sheetGroup(): BelongsTo
+    {
+        return $this->belongsTo(CampaignSheetGroup::class, 'sheet_group_id');
+    }
+
+    /** True se for ficha de NPC pertencente a uma campanha (só o mestre vê). */
+    public function isNpcSheet(): bool
+    {
+        return $this->campaign_id !== null;
+    }
+
+    /** Campanhas a que esta ficha pertence (pivot p/ jogador; campaign_id p/ NPC do mestre). */
+    public function relatedCampaignIds(): \Illuminate\Support\Collection
+    {
+        return $this->campaign_id
+            ? collect([(int) $this->campaign_id])
+            : $this->campaigns()->pluck('campaigns.id');
+    }
+
+    /** Esta ficha participa da campanha dada? */
+    public function isInCampaign(int $campaignId): bool
+    {
+        return $this->campaign_id
+            ? (int) $this->campaign_id === $campaignId
+            : $this->campaigns()->whereKey($campaignId)->exists();
     }
 
     /**
@@ -88,6 +141,11 @@ class Character extends Model
     {
         if ($user->id === $this->user_id) {
             return true;
+        }
+
+        // Ficha de NPC: só o mestre da campanha dona.
+        if ($this->campaign_id) {
+            return $this->ownerCampaign()->where('owner_id', $user->id)->exists();
         }
 
         return $this->campaigns()

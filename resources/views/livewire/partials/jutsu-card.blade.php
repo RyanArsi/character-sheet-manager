@@ -9,6 +9,7 @@
 @php
     $jutsuPayload = [
         'name'   => $jutsu->name,
+        'type'   => 'jutsu',
         'test'   => $jutsu->test_dice,
         'damage' => $jutsu->damage_dice,
         'chakra' => $jutsu->chakra_cost,
@@ -54,20 +55,21 @@
 
             {{-- Nome + ações --}}
             <div class="flex items-start justify-between gap-2">
-                @if($mode === 'assigned')
-                    <button type="button" @click="$dispatch('use-jutsu', @js($jutsuPayload))"
-                        dusk="jutsu-use-{{ $jutsu->id }}"
-                        title="Usar jutsu (rola dados, toca som, desconta chakra)"
-                        class="text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1">
-                        {{ $jutsu->name }}
-                        @if($jutsu->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
-                    </button>
-                @else
-                    <h3 class="text-sm font-semibold text-white leading-tight flex items-center gap-1">
-                        {{ $jutsu->name }}
-                        @if($jutsu->media)<span class="text-[10px] text-gray-500">🔊</span>@endif
-                    </h3>
-                @endif
+                <div class="flex items-center gap-1.5 min-w-0">
+                    @if($mode === 'assigned')
+                        <button type="button" @click="$dispatch('use-jutsu', @js($jutsuPayload))"
+                            dusk="jutsu-use-{{ $jutsu->id }}"
+                            title="Usar jutsu (rola dados, desconta chakra)"
+                            class="text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors truncate">
+                            {{ $jutsu->name }}
+                        </button>
+                    @else
+                        <h3 class="text-sm font-semibold text-white leading-tight truncate">{{ $jutsu->name }}</h3>
+                    @endif
+                    @if($jutsu->media)
+                        @include('livewire.partials.media-button', ['url' => $jutsuPayload['media'], 'volume' => $jutsuPayload['volume']])
+                    @endif
+                </div>
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     @if($jutsu->user_id === $authId)
                         <button type="button" wire:click="startEdit({{ $jutsu->id }})"

@@ -218,18 +218,18 @@
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Dados (teste)</label>
-                    <input type="text" wire:model="test_dice" dusk="talent-test-dice" placeholder="ex.: d20+[taijutsu]"
+                    <input type="text" wire:model="test_dice" dusk="talent-test-dice" placeholder="ex.: d20+taijutsu"
                         class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm font-mono focus:border-amber-500 focus:ring-0 focus:outline-none">
                     @error('test_dice') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Dano</label>
-                    <input type="text" wire:model="damage_dice" dusk="talent-damage-dice" placeholder="ex.: 4d6+[forca]"
+                    <input type="text" wire:model="damage_dice" dusk="talent-damage-dice" placeholder="ex.: 4d6+forca"
                         class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm font-mono focus:border-amber-500 focus:ring-0 focus:outline-none">
                     @error('damage_dice') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
                 </div>
             </div>
-            <p class="text-[10px] text-gray-600 -mt-1">Mesma notação da aba Dados — pode referenciar a ficha com <span class="font-mono text-gray-500">[nome]</span>.</p>
+            <p class="text-[10px] text-gray-600 -mt-1">Mesma notação da aba Dados — referencie a ficha pelo <span class="font-mono text-gray-500">nome</span> (ex.: <span class="font-mono text-gray-500">d20+taijutsu</span>).</p>
 
             {{-- Descrição --}}
             <div>

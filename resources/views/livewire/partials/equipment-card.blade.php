@@ -9,6 +9,7 @@
 @php
     $equipmentPayload = [
         'name'   => $equipment->name,
+        'type'   => 'equipment',
         'test'   => $equipment->test_dice,
         'damage' => $equipment->damage_dice,
         'chakra' => null,
@@ -41,20 +42,21 @@
         </div>
 
         {{-- Nome (com mais espaço em relação à foto) --}}
-        @if($mode === 'assigned')
-            <button type="button" @click="$dispatch('use-jutsu', @js($equipmentPayload))"
-                dusk="equipment-use-{{ $equipment->id }}"
-                title="Usar equipamento (rola dados, toca som)"
-                class="flex-1 min-w-0 ml-2 text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors flex items-center gap-1 truncate">
-                <span class="truncate">{{ $equipment->name }}</span>
-                @if($equipment->media)<span class="text-[10px] text-gray-500 flex-shrink-0">🔊</span>@endif
-            </button>
-        @else
-            <h3 class="flex-1 min-w-0 ml-2 text-sm font-semibold text-white leading-tight flex items-center gap-1 truncate">
-                <span class="truncate">{{ $equipment->name }}</span>
-                @if($equipment->media)<span class="text-[10px] text-gray-500 flex-shrink-0">🔊</span>@endif
-            </h3>
-        @endif
+        <div class="flex-1 min-w-0 ml-2 flex items-center gap-1.5">
+            @if($mode === 'assigned')
+                <button type="button" @click="$dispatch('use-jutsu', @js($equipmentPayload))"
+                    dusk="equipment-use-{{ $equipment->id }}"
+                    title="Usar equipamento (rola dados)"
+                    class="min-w-0 text-sm font-semibold text-white leading-tight text-left hover:text-amber-300 transition-colors truncate">
+                    {{ $equipment->name }}
+                </button>
+            @else
+                <h3 class="min-w-0 text-sm font-semibold text-white leading-tight truncate">{{ $equipment->name }}</h3>
+            @endif
+            @if($equipment->media)
+                @include('livewire.partials.media-button', ['url' => $equipmentPayload['media'], 'volume' => $equipmentPayload['volume']])
+            @endif
+        </div>
 
         {{-- Ações --}}
         <div class="flex items-center gap-1.5 flex-shrink-0">

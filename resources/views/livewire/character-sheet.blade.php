@@ -1,4 +1,6 @@
 @push('scripts')
+@include('partials.campaign-event-format')
+@include('partials.dice-roller')
 <script>
 function characterSheet(cid, campaigns) {
     return {
@@ -23,6 +25,16 @@ function characterSheet(cid, campaigns) {
         // Configuração de uso de jutsu (persistida por ficha)
         jutsuCfg: { chakra: true, test: true, damage: true },
         jutsuMedia: null,
+
+        // Som de rolagem de dados (tocado em toda rolagem)
+        diceSound: null,
+
+        // Acumulador de modificações das barras (vida/chakra).
+        // Mostra um número amarelo somando os ajustes; zera após 7s sem mexer na mesma barra.
+        barDelta: {
+            vida:   { value: 0, visible: false, timer: null },
+            chakra: { value: 0, visible: false, timer: null },
+        },
 
         // Alerta de subida de nível
         levelAlert: { visible: false, hp: 0, chakra: '' },
@@ -51,6 +63,7 @@ function characterSheet(cid, campaigns) {
         condTurns: 1,
 
         rollDice(label, bonus) {
+            this.playDiceSound();
             const die = Math.floor(Math.random() * 20) + 1;
             bonus = parseInt(bonus) || 0;
             const total = die + bonus;
@@ -94,76 +107,13 @@ function characterSheet(cid, campaigns) {
             return null;
         },
 
-        // Avalia uma expressão de dados (mesma notação da aba Dados, com referências [nome]).
+        // Avalia uma expressão de dados (mesma notação da aba Dados). Valores da ficha
+        // podem ser referenciados pelo nome direto (ex.: d20+forca) — colchetes [forca]
+        // continuam aceitos para compatibilidade e para nomes com números/símbolos.
         // Retorna { ok:true, total, groups, expr, showBreakdown } ou { ok:false, error }.
         evalDice(input) {
-            const raw = (input || '').toString().trim().toLowerCase().replace(/\s+/g, '');
-            if (!raw) return { ok: false, error: 'Expressão vazia.' };
-
-            if ((raw.match(/\[/g) || []).length !== (raw.match(/\]/g) || []).length) {
-                return { ok: false, error: 'Colchetes não fechados. Ex.: d20+[forca].' };
-            }
-
-            // Garante sinal inicial e quebra em termos: 6d6 | -2d6 | +d20 | +[forca] | -2
-            const signed = (raw[0] === '+' || raw[0] === '-') ? raw : '+' + raw;
-            const re = /([+-])(\d*d\d+|\d+|\[[^\]]+\])/g;
-            const terms = [];
-            let match, consumed = 0;
-            while ((match = re.exec(signed)) !== null) {
-                if (match.index !== consumed) break; // termo malformado/lacuna
-                terms.push({ sign: match[1], body: match[2] });
-                consumed = re.lastIndex;
-            }
-            if (consumed !== signed.length || terms.length === 0) {
-                return { ok: false, error: 'Formato inválido. Ex.: d20+[forca], 6d6-2d6+d20-5.' };
-            }
-
-            const groups = [];
-            let total = 0;
-            let diceCount = 0;
-            for (const t of terms) {
-                const mul = t.sign === '-' ? -1 : 1;
-                if (t.body[0] === '[') {
-                    const name = t.body.slice(1, -1).trim();
-                    const val = this.statValue(name);
-                    if (val === null) {
-                        return { ok: false, error: 'Não encontrei "' + name + '" entre os atributos, especializações ou perícias.' };
-                    }
-                    total += mul * val;
-                    groups.push({ kind: 'ref', sign: t.sign, label: name, value: val });
-                } else if (t.body.includes('d')) {
-                    const [qPart, sPart] = t.body.split('d');
-                    const qty = qPart === '' ? 1 : parseInt(qPart, 10);
-                    const sides = parseInt(sPart, 10);
-                    if (qty < 1 || qty > 100) {
-                        return { ok: false, error: 'Quantidade de dados deve ser entre 1 e 100 (em "' + t.body + '").' };
-                    }
-                    if (sides < 1 || sides > 1000) {
-                        return { ok: false, error: 'O dado deve ter entre 1 e 1000 lados (em "' + t.body + '").' };
-                    }
-                    const values = [];
-                    for (let i = 0; i < qty; i++) {
-                        const v = Math.floor(Math.random() * sides) + 1;
-                        values.push(v);
-                        total += mul * v;
-                        diceCount++;
-                    }
-                    groups.push({ kind: 'dice', sign: t.sign, label: t.body, sides, values });
-                } else {
-                    const k = parseInt(t.body, 10);
-                    total += mul * k;
-                    groups.push({ kind: 'const', sign: t.sign, value: k });
-                }
-            }
-
-            // Expressão normalizada para exibição: 6d6 − 2d6 + d20 − d100 + 2
-            const expr = terms.map((t, i) =>
-                i === 0
-                    ? (t.sign === '-' ? '−' : '') + t.body
-                    : (t.sign === '-' ? ' − ' : ' + ') + t.body
-            ).join('');
-
-            return { ok: true, total, groups, expr, showBreakdown: groups.length > 1 || diceCount > 1 };
+            // Avaliador compartilhado (partials/dice-roller); resolve nomes pela ficha.
+            return window.evalDiceExpr(input, (name) => this.statValue(name));
         },
 
         rollExpression() {
@@ -173,6 +123,7 @@ function characterSheet(cid, campaigns) {
                 this.diceError = r.error;
                 return;
             }
+            this.playDiceSound();
 
             const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             this.diceResult = { expr: r.expr, groups: r.groups, total: r.total, time, showBreakdown: r.showBreakdown };
@@ -183,18 +134,19 @@ function characterSheet(cid, campaigns) {
                 { kind: 'expr', expr: r.expr, total: r.total });
         },
 
-        // Usa um jutsu: rola teste/dano (toast), desconta chakra e toca a mídia,
+        // Usa um jutsu: rola teste/dano (toast) e desconta chakra,
         // respeitando os toggles da engrenagem (jutsuCfg).
+        // O som é tocado à parte, pelo botão dedicado (evento play-media).
         playJutsu(j) {
             const lines = [];
 
             if (this.jutsuCfg.test && j.test) {
                 const r = this.evalDice(j.test);
-                if (r.ok) lines.push({ label: 'Teste', expr: r.expr, total: r.total });
+                if (r.ok) lines.push({ label: 'Teste', expr: r.expr, total: r.total, groups: r.groups });
             }
             if (this.jutsuCfg.damage && j.damage) {
                 const r = this.evalDice(j.damage);
-                if (r.ok) lines.push({ label: 'Dano', expr: r.expr, total: r.total });
+                if (r.ok) lines.push({ label: 'Dano', expr: r.expr, total: r.total, groups: r.groups });
             }
 
             let chakraSpent = 0;
@@ -203,10 +155,11 @@ function characterSheet(cid, campaigns) {
                 if (!isNaN(cost) && cost > 0) {
                     chakraSpent = cost;
                     this.$wire.adjustChakra(-cost);
+                    this.bumpDelta('chakra', -cost);
                 }
             }
 
-            if (j.media) this.playMedia(j.media, j.volume);
+            if (lines.length) this.playDiceSound();
 
             if (lines.length || chakraSpent) {
                 clearTimeout(this.roll.timer);
@@ -220,11 +173,51 @@ function characterSheet(cid, campaigns) {
                 if (chakraSpent) parts.push('−' + chakraSpent + ' chakra');
                 const suffix = parts.length ? ' — ' + parts.join(', ') : '';
                 this.shareRoll('usou ' + j.name + suffix,
-                    { kind: 'jutsu', name: j.name, lines, chakraSpent });
+                    { kind: 'jutsu', type: j.type, name: j.name, lines, chakraSpent });
             }
         },
 
+        // Toca o som de rolagem de dados. Reaproveita o mesmo elemento de áudio
+        // e reinicia do começo para suportar rolagens em sequência.
+        playDiceSound() {
+            try {
+                if (! this.diceSound) {
+                    this.diceSound = new Audio(@js(asset('audio/dice-roll-Cris.mp3')));
+                    this.diceSound.volume = 0.7;
+                }
+                this.diceSound.currentTime = 0;
+                this.diceSound.play().catch(() => {});
+            } catch (e) { /* áudio indisponível — ignora */ }
+        },
+
+        // Acumula a modificação de uma barra e exibe o total (amarelo) embaixo dela.
+        // Cada novo ajuste soma ao valor atual e renova o tempo; após 7s sem mexer
+        // na mesma barra, o acumulador zera e some.
+        bumpDelta(bar, amount) {
+            const d = this.barDelta[bar];
+            if (! d) return;
+            clearTimeout(d.timer);
+            d.value += amount;
+            d.visible = true;
+            d.timer = setTimeout(() => { d.value = 0; d.visible = false; }, 5000);
+        },
+
+        // Disparado pelo botão de som dos cards. Se a ficha está compartilhando
+        // com uma campanha, manda todo mundo (inclusive eu) tocar via WebSocket —
+        // trafega só a URL, cada cliente busca o arquivo do servidor de assets.
+        // Sem campanha, toca apenas localmente.
         playMedia(url, volume) {
+            const id = parseInt(this.shareCampaignId);
+            if (id) {
+                this.$wire.shareMedia(id, url, parseInt(volume, 10) || 100);
+                return;
+            }
+            this.playMediaLocal(url, volume);
+        },
+
+        // Reprodução local de fato (não retransmite — usada por mim e por quem
+        // recebe o broadcast de mídia da campanha).
+        playMediaLocal(url, volume) {
             try {
                 if (this.jutsuMedia) { this.jutsuMedia.pause(); }
                 const isVideo = /\.(mp4|webm|mov|ogv)$/i.test(url);
@@ -242,6 +235,7 @@ function characterSheet(cid, campaigns) {
             const hasRoll = (r.kind === 'attr' && r.die > 0)
                 || (r.kind === 'jutsu' && Array.isArray(r.lines) && r.lines.length > 0);
             if (!hasRoll) return;
+            this.playDiceSound();
 
             const d6 = Math.floor(Math.random() * 6) + 1;
             if (! Array.isArray(r.advMods)) r.advMods = [];
@@ -297,6 +291,10 @@ function characterSheet(cid, campaigns) {
                 })
                 .listen('.CampaignInitiativeUpdated', (e) => {
                     if (e.state && parseInt(this.shareCampaignId) === id) this.initiative = e.state;
+                })
+                .listen('.CampaignMediaBroadcast', (e) => {
+                    // Alguém na campanha usou uma mídia: toca aqui também (só a URL veio).
+                    if (e.url) this.playMediaLocal(e.url, e.volume);
                 });
 
             // Carrega o estado atual da iniciativa ao entrar na campanha
@@ -312,6 +310,7 @@ function characterSheet(cid, campaigns) {
         },
 
         rollInitiative() {
+            this.playDiceSound();
             const agi = parseInt(this.$wire.get('agilidade')) || 0;
             const mod = parseInt(this.initMod) || 0;
             const die = Math.floor(Math.random() * 20) + 1;
@@ -462,6 +461,7 @@ function characterSheet(cid, campaigns) {
     class="flex h-screen overflow-hidden"
     x-data="characterSheet({{ $characterId }}, @js($campaignOptions))"
     x-on:use-jutsu.window="playJutsu($event.detail)"
+    x-on:play-media.window="playMedia($event.detail.url, $event.detail.volume)"
 >
 
     {{-- ===== COLUNA ESQUERDA (fixa, rolável internamente) ===== --}}
@@ -557,10 +557,10 @@ function characterSheet(cid, campaigns) {
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5" :class="lockVida ? 'opacity-50' : ''">
-                    <button type="button" wire:click="adjustHp(-5)"
+                    <button type="button" wire:click="adjustHp(-5)" @click="bumpDelta('vida', -5)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">«</button>
-                    <button type="button" wire:click="adjustHp(-1)"
+                    <button type="button" wire:click="adjustHp(-1)" @click="bumpDelta('vida', -1)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">‹</button>
 
@@ -577,12 +577,17 @@ function characterSheet(cid, campaigns) {
                         </div>
                     </div>
 
-                    <button type="button" wire:click="adjustHp(1)"
+                    <button type="button" wire:click="adjustHp(1)" @click="bumpDelta('vida', 1)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">›</button>
-                    <button type="button" wire:click="adjustHp(5)"
+                    <button type="button" wire:click="adjustHp(5)" @click="bumpDelta('vida', 5)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-red-400 transition-colors px-0.5 disabled:cursor-not-allowed">»</button>
+                </div>
+                <div class="h-4 mt-0.5 text-center leading-none">
+                    <span x-show="barDelta.vida.visible" x-cloak x-transition.opacity
+                        class="text-[11px] font-bold text-amber-400"
+                        x-text="'(' + (barDelta.vida.value >= 0 ? '+' : '') + barDelta.vida.value + ')'"></span>
                 </div>
             </div>
 
@@ -600,10 +605,10 @@ function characterSheet(cid, campaigns) {
                     </div>
                 </div>
                 <div class="flex items-center gap-1.5" :class="lockVida ? 'opacity-50' : ''">
-                    <button type="button" wire:click="adjustChakra(-5)"
+                    <button type="button" wire:click="adjustChakra(-5)" @click="bumpDelta('chakra', -5)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">«</button>
-                    <button type="button" wire:click="adjustChakra(-1)"
+                    <button type="button" wire:click="adjustChakra(-1)" @click="bumpDelta('chakra', -1)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">‹</button>
 
@@ -620,12 +625,17 @@ function characterSheet(cid, campaigns) {
                         </div>
                     </div>
 
-                    <button type="button" wire:click="adjustChakra(1)"
+                    <button type="button" wire:click="adjustChakra(1)" @click="bumpDelta('chakra', 1)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">›</button>
-                    <button type="button" wire:click="adjustChakra(5)"
+                    <button type="button" wire:click="adjustChakra(5)" @click="bumpDelta('chakra', 5)"
                         :disabled="lockVida"
                         class="text-xs font-bold text-gray-400 hover:text-blue-400 transition-colors px-0.5 disabled:cursor-not-allowed">»</button>
+                </div>
+                <div class="h-4 mt-0.5 text-center leading-none">
+                    <span x-show="barDelta.chakra.visible" x-cloak x-transition.opacity
+                        class="text-[11px] font-bold text-amber-400"
+                        x-text="'(' + (barDelta.chakra.value >= 0 ? '+' : '') + barDelta.chakra.value + ')'"></span>
                 </div>
             </div>
 
@@ -1019,7 +1029,7 @@ function characterSheet(cid, campaigns) {
                             <span class="text-xs font-semibold text-amber-400 truncate" x-text="ev.actor"></span>
                             <span class="text-[10px] text-gray-500 flex-shrink-0" x-text="ev.time"></span>
                         </div>
-                        <div class="text-xs text-gray-200 mt-0.5 break-words" x-text="ev.message"></div>
+                        <div class="text-xs text-gray-200 mt-0.5 break-words" x-html="fmtCampaignEvent(ev.message, ev.detail, true)"></div>
                     </div>
                 </template>
             </div>
@@ -1033,11 +1043,13 @@ function characterSheet(cid, campaigns) {
     <aside class="w-[28rem] flex-shrink-0 flex flex-col bg-gray-800 border-l border-gray-700 overflow-hidden">
 
         {{-- Abas (guias estilo navegador) --}}
-        <div class="flex items-end gap-1 px-4 pt-2 bg-gray-900 border-b border-gray-700 flex-shrink-0">
+        <div class="flex items-end gap-0.5 px-2 pt-2 bg-gray-900 border-b border-gray-700 flex-shrink-0">
             @foreach([
-                ['equipamentos', 'Equipamentos'],
+                ['equipamentos', 'Equip.'],
                 ['talentos',     'Talentos'],
                 ['jutsus',       'Jutsus'],
+                ['acoes',        'Ações'],
+                ['testes',       'Testes'],
                 ['dados',        'Dados'],
                 ['notas',        'Notas'],
             ] as [$tab, $label])
@@ -1047,7 +1059,7 @@ function characterSheet(cid, campaigns) {
                 :class="activeTab === '{{ $tab }}'
                     ? 'bg-gray-800 text-amber-400 border-gray-700 border-b-gray-800'
                     : 'bg-gray-900 text-gray-500 hover:text-gray-300 border-transparent'"
-                class="px-4 py-2 text-xs font-medium rounded-t-lg border border-b-0 -mb-px transition-colors">
+                class="px-2 py-2 text-[11px] font-medium rounded-t-lg border border-b-0 -mb-px transition-colors whitespace-nowrap">
                 {{ $label }}
             </button>
             @endforeach
@@ -1070,6 +1082,16 @@ function characterSheet(cid, campaigns) {
                 <livewire:jutsu-panel :character-id="$characterId" :key="'jutsu-panel-'.$characterId" />
             </div>
 
+            {{-- Ações --}}
+            <div x-show="activeTab === 'acoes'" dusk="panel-acoes" x-cloak>
+                <livewire:action-panel :character-id="$characterId" :key="'action-panel-'.$characterId" />
+            </div>
+
+            {{-- Testes --}}
+            <div x-show="activeTab === 'testes'" dusk="panel-testes" x-cloak>
+                <livewire:test-panel :character-id="$characterId" :key="'test-panel-'.$characterId" />
+            </div>
+
             {{-- Dados --}}
             <div x-show="activeTab === 'dados'" dusk="panel-dados" x-cloak>
                 <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Dados</h2>
@@ -1080,7 +1102,7 @@ function characterSheet(cid, campaigns) {
                         <input type="text"
                             x-model="diceInput"
                             dusk="dice-input"
-                            placeholder="ex: d20+[forca], 6d6-2d6+d20-5"
+                            placeholder="ex: d20+forca, 6d6-2d6+d20-5"
                             autocomplete="off" spellcheck="false"
                             class="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 font-mono lowercase focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none">
                         <button type="submit"
@@ -1090,10 +1112,10 @@ function characterSheet(cid, campaigns) {
                         </button>
                     </div>
                     <p class="text-[10px] text-gray-600 mt-1.5 leading-relaxed">
-                        Combine termos com <span class="font-mono text-gray-500">+</span> e <span class="font-mono text-gray-500">−</span>, e some valores da ficha com <span class="font-mono text-gray-500">[nome]</span>:
-                        <span class="font-mono text-gray-500">d20+[forca]</span>,
-                        <span class="font-mono text-gray-500">d6+[taijutsu]</span>,
-                        <span class="font-mono text-gray-500">2d6+[esquiva]-1</span>
+                        Combine termos com <span class="font-mono text-gray-500">+</span> e <span class="font-mono text-gray-500">−</span>, e some valores da ficha pelo <span class="text-gray-500">nome</span>:
+                        <span class="font-mono text-gray-500">d20+forca</span>,
+                        <span class="font-mono text-gray-500">d6+taijutsu</span>,
+                        <span class="font-mono text-gray-500">2d6+esquiva-1</span>
                     </p>
                     <p x-show="diceError" x-text="diceError" x-cloak
                         dusk="dice-error"
@@ -1163,8 +1185,7 @@ function characterSheet(cid, campaigns) {
 
             {{-- Notas --}}
             <div x-show="activeTab === 'notas'" dusk="panel-notas" x-cloak>
-                <h2 class="text-sm font-bold text-amber-500 uppercase tracking-widest mb-4">Notas</h2>
-                <p class="text-gray-600 text-sm">Conteúdo em construção.</p>
+                <livewire:note-panel :character-id="$characterId" :key="'note-panel-'.$characterId" />
             </div>
         </div>
 
@@ -1339,16 +1360,44 @@ function characterSheet(cid, campaigns) {
                     <p class="text-xs text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-1">
                         🌀 <span x-text="roll.name"></span>
                     </p>
-                    <div class="space-y-1.5">
+                    <div class="space-y-2">
                         <template x-for="(line, i) in roll.lines" :key="i">
-                            <div class="flex items-center justify-between gap-3">
-                                <span class="text-[10px] uppercase tracking-widest"
-                                    :class="line.label === 'Dano' ? 'text-red-400' : 'text-gray-500'"
-                                    x-text="line.label"></span>
-                                <span class="font-mono text-[10px] text-gray-500 flex-1 truncate text-right" x-text="line.expr"></span>
-                                <span class="text-2xl font-black flex-shrink-0"
-                                    :class="line.label === 'Dano' ? 'text-red-400' : 'text-amber-400'"
-                                    x-text="line.total"></span>
+                            <div>
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="text-[10px] uppercase tracking-widest"
+                                        :class="line.label === 'Dano' ? 'text-red-400' : 'text-gray-500'"
+                                        x-text="line.label"></span>
+                                    <span class="font-mono text-[10px] text-gray-500 flex-1 truncate text-right" x-text="line.expr"></span>
+                                    <span class="text-2xl font-black flex-shrink-0"
+                                        :class="line.label === 'Dano' ? 'text-red-400' : 'text-amber-400'"
+                                        x-text="line.total"></span>
+                                </div>
+                                {{-- Dados individuais (verde = máx, vermelho = mín) + modificadores --}}
+                                <div class="flex items-center gap-1 flex-wrap mt-1" x-show="line.groups && line.groups.length">
+                                    <template x-for="(g, gi) in line.groups" :key="gi">
+                                        <div class="flex items-center gap-1 flex-wrap">
+                                            <template x-if="g.kind === 'dice'">
+                                                <template x-for="(v, vi) in g.values" :key="vi">
+                                                    <span class="w-6 h-6 rounded text-[11px] font-bold flex items-center justify-center"
+                                                        :class="g.sign === '-'
+                                                            ? 'bg-red-500/10 text-red-300 ring-1 ring-red-500/30'
+                                                            : (v === g.sides ? 'bg-green-500/25 text-green-300 ring-1 ring-green-400/50' : v === 1 ? 'bg-red-500/25 text-red-300 ring-1 ring-red-400/50' : 'bg-gray-700 text-white')"
+                                                        x-text="v"></span>
+                                                </template>
+                                            </template>
+                                            <template x-if="g.kind === 'const'">
+                                                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-gray-800"
+                                                    :class="g.sign === '-' ? 'text-red-400' : 'text-gray-400'"
+                                                    x-text="(g.sign === '-' ? '−' : '+') + g.value"></span>
+                                            </template>
+                                            <template x-if="g.kind === 'ref'">
+                                                <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10"
+                                                    :class="g.sign === '-' ? 'text-red-300' : 'text-amber-300'"
+                                                    x-text="(g.sign === '-' ? '−' : '+') + g.label + ' (' + g.value + ')'"></span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
                             </div>
                         </template>
                         <p x-show="roll.chakraSpent > 0" class="text-[11px] text-blue-400 pt-1 border-t border-gray-700">

@@ -90,7 +90,7 @@ class EquipmentPanel extends Component
     {
         $ids = collect([$character->user_id, auth()->id()]);
 
-        $campaignIds = $character->campaigns()->pluck('campaigns.id');
+        $campaignIds = $character->relatedCampaignIds();
         if ($campaignIds->isNotEmpty()) {
             $memberIds = User::whereHas('campaigns', fn ($q) => $q->whereIn('campaigns.id', $campaignIds))
                 ->pluck('id');

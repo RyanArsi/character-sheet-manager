@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Events\CampaignMediaBroadcast;
 use App\Livewire\CharacterSheet;
+use App\Models\Campaign;
 use App\Models\Character;
 use App\Models\User;
 use App\Support\SkillDefinitions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -184,7 +187,7 @@ class CharacterSheetTest extends TestCase
         ]);
     }
 
-    public function test_ajuste_hp_respeita_limite_maximo(): void
+    public function test_ajuste_hp_pode_passar_do_maximo_mas_nao_de_zero(): void
     {
         [$user, $character] = $this->userWithCharacter();
 
@@ -193,16 +196,16 @@ class CharacterSheetTest extends TestCase
             ->set('hp_max', 20)
             ->set('hp_current', 20);
 
-        // Tentar passar do máximo
+        // Pode ultrapassar o máximo (ex.: vida temporária)
         $component->call('adjustHp', 10);
-        $this->assertEquals(20, $component->get('hp_current'));
+        $this->assertEquals(30, $component->get('hp_current'));
 
-        // Tentar passar de zero
+        // Mas nunca desce de zero
         $component->call('adjustHp', -50);
         $this->assertEquals(0, $component->get('hp_current'));
     }
 
-    public function test_ajuste_chakra_respeita_limite_maximo(): void
+    public function test_ajuste_chakra_pode_passar_do_maximo_mas_nao_de_zero(): void
     {
         [$user, $character] = $this->userWithCharacter();
 
@@ -212,9 +215,9 @@ class CharacterSheetTest extends TestCase
             ->set('chakra_current', 20);
 
         $component->call('adjustChakra', 99);
-        $this->assertEquals(20, $component->get('chakra_current'));
+        $this->assertEquals(119, $component->get('chakra_current'));
 
-        $component->call('adjustChakra', -99);
+        $component->call('adjustChakra', -999);
         $this->assertEquals(0, $component->get('chakra_current'));
     }
 
@@ -270,5 +273,88 @@ class CharacterSheetTest extends TestCase
         $this->actingAs($intruder)
             ->postJson(route('fichas.autosave', $character), ['name' => 'Hack'])
             ->assertForbidden();
+    }
+
+    public function test_apagar_campos_numericos_vale_zero_sem_erro(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        // Apagar o input (envia "") não deve quebrar e deve valer 0
+        $component->set('hp_current', '');
+        $this->assertSame(0, $component->get('hp_current'));
+
+        $component->set('chakra_max', '');
+        $this->assertSame(0, $component->get('chakra_max'));
+
+        // Valor normal continua sendo preservado
+        $component->set('hp_max', '35');
+        $this->assertSame(35, $component->get('hp_max'));
+
+        // Valor de perícia apagado vale 0
+        $component->set('skills.0.value', '');
+        $this->assertSame(0, $component->get('skills.0.value'));
+
+        // Nível tem regra própria: vazio cai para o mínimo 1
+        $component->set('level', '');
+        $this->assertSame(1, $component->get('level'));
+    }
+
+    // -------------------------------------------------------------------------
+    // Mídia compartilhada com a campanha (broadcast de reprodução)
+    // -------------------------------------------------------------------------
+
+    public function test_share_media_transmite_url_para_a_campanha(): void
+    {
+        Event::fake([CampaignMediaBroadcast::class]);
+
+        [$user, $character] = $this->userWithCharacter();
+        $campaign = Campaign::factory()->create(['owner_id' => $user->id]);
+        $campaign->members()->attach($user->id, ['role' => 'owner']);
+        $campaign->characters()->attach($character->id);
+
+        Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->call('shareMedia', $campaign->id, 'https://exemplo.test/audio/jutsu.mp3', 80);
+
+        Event::assertDispatched(CampaignMediaBroadcast::class, function ($e) use ($campaign) {
+            return $e->campaignId === $campaign->id
+                && $e->url === 'https://exemplo.test/audio/jutsu.mp3'
+                && $e->volume === 80;
+        });
+    }
+
+    public function test_share_media_rejeita_campanha_alheia(): void
+    {
+        Event::fake([CampaignMediaBroadcast::class]);
+
+        [$user, $character] = $this->userWithCharacter();
+        // Campanha em que a ficha NÃO está
+        $other = Campaign::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->call('shareMedia', $other->id, 'https://exemplo.test/audio/jutsu.mp3', 100)
+            ->assertForbidden();
+
+        Event::assertNotDispatched(CampaignMediaBroadcast::class);
+    }
+
+    public function test_share_media_ignora_url_vazia(): void
+    {
+        Event::fake([CampaignMediaBroadcast::class]);
+
+        [$user, $character] = $this->userWithCharacter();
+        $campaign = Campaign::factory()->create(['owner_id' => $user->id]);
+        $campaign->members()->attach($user->id, ['role' => 'owner']);
+        $campaign->characters()->attach($character->id);
+
+        Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->call('shareMedia', $campaign->id, '   ', 100);
+
+        Event::assertNotDispatched(CampaignMediaBroadcast::class);
     }
 }
