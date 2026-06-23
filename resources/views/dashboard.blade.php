@@ -31,7 +31,8 @@
                     @else
                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             @foreach($characters as $character)
-                            <a href="{{ route('fichas.editar', $character) }}"
+                            <a href="{{ route('fichas.editar', $character) }}" data-return
+                                dusk="dash-ficha-{{ $character->id }}"
                                 class="block bg-gray-900 border border-gray-700 rounded-lg p-4 hover:border-amber-400 hover:shadow-md transition-all group">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -60,4 +61,6 @@
 
         </div>
     </div>
+
+    @include('partials.return-link')
 </x-app-layout>
