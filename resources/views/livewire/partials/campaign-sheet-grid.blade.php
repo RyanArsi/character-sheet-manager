@@ -26,7 +26,7 @@
                 </div>
 
                 <div class="flex items-center justify-between gap-2 mt-3">
-                    <a href="{{ route('fichas.editar', $sheet->id) }}"
+                    <a href="{{ route('fichas.editar', $sheet->id) }}" data-return
                         class="text-xs text-amber-400 hover:underline">Abrir / editar</a>
 
                     <div class="flex items-center gap-2">

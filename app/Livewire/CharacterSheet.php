@@ -62,9 +62,19 @@ class CharacterSheet extends Component
     // Campanhas em que esta ficha está — opções para compartilhar eventos de dados
     public array $campaignOptions = [];
 
+    // URL de retorno (tela de origem, ex.: campanha + aba) para o botão "voltar".
+    #[Locked]
+    public ?string $returnUrl = null;
+
     public function mount(Character $character): void
     {
         abort_unless($character->canBeManagedBy(auth()->user()), 403);
+
+        // Captura a tela de origem (?from=) uma vez, só se for do próprio site.
+        $from = request('from');
+        if (is_string($from) && \Illuminate\Support\Str::startsWith($from, url('/'))) {
+            $this->returnUrl = $from;
+        }
 
         $this->characterId = $character->id;
 

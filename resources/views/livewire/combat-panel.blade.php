@@ -286,7 +286,7 @@
                         </div>
 
                         <div class="flex items-center justify-between mt-2 pt-1.5 border-t border-gray-700">
-                            <a href="{{ route('fichas.editar', $c->id) }}" class="text-[10px] text-amber-400 hover:underline">Editar ficha</a>
+                            <a href="{{ route('fichas.editar', $c->id) }}" data-return dusk="combat-edit-{{ $c->id }}" class="text-[10px] text-amber-400 hover:underline">Editar ficha</a>
                             <button type="button" wire:click="removeCombatant({{ $c->id }})" class="text-[10px] text-gray-500 hover:text-red-400">Remover</button>
                         </div>
                     </div>

@@ -808,7 +808,9 @@ function characterSheet(cid, campaigns) {
         {{-- Barra superior com status de save --}}
         <div class="flex items-center justify-between px-6 py-3 bg-gray-900 border-b border-gray-700 flex-shrink-0">
             <div class="flex items-center gap-3">
-                <a href="{{ route('dashboard') }}" class="text-gray-500 hover:text-gray-300 transition-colors">
+                {{-- Volta para a tela de origem (campanha + aba via ?from=) ou ao dashboard --}}
+                <a href="{{ $returnUrl ?: route('dashboard') }}" title="Voltar" dusk="sheet-back"
+                    class="text-gray-500 hover:text-gray-300 transition-colors">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>

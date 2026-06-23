@@ -275,6 +275,27 @@ class CharacterSheetTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_return_url_local_e_capturada(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+        $from = url('/campanhas/5').'#combate';
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['from' => $from])
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->assertSet('returnUrl', $from);
+    }
+
+    public function test_return_url_externa_e_ignorada(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        Livewire::actingAs($user)
+            ->withQueryParams(['from' => 'https://evil.example.com/phish'])
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->assertSet('returnUrl', null);
+    }
+
     public function test_apagar_campos_numericos_vale_zero_sem_erro(): void
     {
         [$user, $character] = $this->userWithCharacter();

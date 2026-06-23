@@ -8,12 +8,21 @@
         </div>
     </x-slot>
 
-    <div class="py-12" x-data="{ tab: 'campanha' }">
+    @php $campTabs = ['campanha' => 'Campanha', 'biblioteca' => 'Biblioteca'] + ($isOwner ? ['fichas' => 'Fichas', 'combate' => 'Combate'] : []); @endphp
+    <div class="py-12"
+        x-data="{
+            tabs: @js(array_keys($campTabs)),
+            tab: 'campanha',
+            init() {
+                const h = (location.hash || '').slice(1);
+                this.tab = this.tabs.includes(h) ? h : 'campanha';
+                this.$watch('tab', v => history.replaceState(history.state, '', '#' + v));
+            },
+        }">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
             {{-- Abas --}}
             <div class="flex items-end gap-1 mb-6 border-b border-gray-700">
-                @php $campTabs = ['campanha' => 'Campanha', 'biblioteca' => 'Biblioteca'] + ($isOwner ? ['fichas' => 'Fichas', 'combate' => 'Combate'] : []); @endphp
                 @foreach($campTabs as $key => $label)
                     <button type="button" @click="tab = '{{ $key }}'"
                         dusk="camp-tab-{{ $key }}"
@@ -147,7 +156,7 @@
                                 </div>
                                 <div class="mt-3 flex items-center justify-between">
                                     @if($isOwner || $character->user_id === auth()->id())
-                                        <a href="{{ route('fichas.editar', $character) }}" class="text-xs text-amber-400 hover:underline">
+                                        <a href="{{ route('fichas.editar', $character) }}" data-return class="text-xs text-amber-400 hover:underline">
                                             {{ $character->user_id === auth()->id() ? 'Editar ficha' : 'Ver / editar ficha' }}
                                         </a>
                                     @else
@@ -280,5 +289,16 @@
                 },
             };
         }
+
+        // Links marcados com data-return guardam a tela atual (URL + aba via hash)
+        // para a ficha conseguir "voltar" exatamente para onde o usuário estava.
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('a[data-return]');
+            if (! a) return;
+            e.preventDefault();
+            const base = a.getAttribute('href');
+            const sep = base.includes('?') ? '&' : '?';
+            window.location.href = base + sep + 'from=' + encodeURIComponent(window.location.href);
+        });
     </script>
 </x-app-layout>

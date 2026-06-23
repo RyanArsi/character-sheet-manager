@@ -106,6 +106,27 @@ class CombatBrowserTest extends DuskTestCase
         });
     }
 
+    public function test_editar_ficha_e_voltar_retorna_ao_combate(): void
+    {
+        [$master, $campaign, $npc] = $this->setup_combat(inCombat: true);
+
+        $this->browse(function (Browser $browser) use ($master, $campaign, $npc) {
+            $this->openCombat($browser, $master, $campaign)
+                ->waitFor("@combat-expand-{$npc->id}")
+                ->click("@combat-expand-{$npc->id}")
+                ->waitFor("@combat-edit-{$npc->id}")
+                ->click("@combat-edit-{$npc->id}")
+                // chegou no editor da ficha
+                ->waitFor('@sheet-back', 10)
+                ->assertQueryStringHas('from')
+                ->click('@sheet-back')
+                // voltou para a campanha na aba Combate (hash #combate)
+                ->waitForLocation("/campanhas/{$campaign->id}", 10)
+                ->waitFor('@combat-initiative', 10)
+                ->assertVisible('@combat-initiative');
+        });
+    }
+
     public function test_adicionar_condicao_mostra_chip(): void
     {
         [$master, $campaign, $npc] = $this->setup_combat(inCombat: true);
