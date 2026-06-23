@@ -22,12 +22,14 @@
             // Eventos e iniciativa ao vivo (assinatura única que sobrevive aos re-renders).
             initEcho(cid) {
                 if (! window.Echo) return;
-                window.Echo.private('campaign.' + cid)
-                    .listen('.CampaignEventBroadcast', (e) => {
-                        this.feed.unshift(e);
-                        if (this.feed.length > 100) this.feed.pop();
-                    })
-                    .listen('.CampaignInitiativeUpdated', () => { this.$wire.$refresh(); });
+                try {
+                    window.Echo.private('campaign.' + cid)
+                        .listen('.CampaignEventBroadcast', (e) => {
+                            this.feed.unshift(e);
+                            if (this.feed.length > 100) this.feed.pop();
+                        })
+                        .listen('.CampaignInitiativeUpdated', () => { this.$wire.$refresh(); });
+                } catch (e) { /* sem broadcaster — segue sem tempo real */ }
             },
 
             toggle(id) { this.expandedId = this.expandedId === id ? null : id; },

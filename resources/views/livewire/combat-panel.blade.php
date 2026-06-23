@@ -27,7 +27,7 @@
         $conditions = $initiative['conditions'] ?? [];
         $condByTarget = collect($conditions)->groupBy('target_id');
     @endphp
-    <div class="flex-1 min-w-0 space-y-3">
+    <div class="flex-1 min-w-0 space-y-3" dusk="combat-initiative">
         {{-- Cabeçalho: rodada + controles --}}
         <div class="flex items-center justify-between gap-2">
             <div class="flex items-center gap-2">
@@ -96,10 +96,10 @@
             <div class="pt-3 border-t border-gray-700">
                 <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest mb-2">Condições &amp; Eventos</h3>
                 <div x-data="{ cname: '', target: '', turns: 1 }" class="flex items-center gap-1.5">
-                    <input type="text" x-model="cname" placeholder="Nome da condição"
+                    <input type="text" x-model="cname" placeholder="Nome da condição" dusk="combat-cond-name"
                         @keydown.enter="if(cname.trim()&&target){ $wire.addCondition(cname, target, parseInt(turns)||1); cname=''; target=''; turns=1; }"
                         class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:border-amber-500 focus:ring-0 focus:outline-none">
-                    <select x-model="target"
+                    <select x-model="target" dusk="combat-cond-target"
                         class="bg-gray-800 border border-gray-700 rounded px-1 py-1 text-xs text-gray-200 max-w-[10rem] focus:border-amber-500 focus:ring-0 focus:outline-none">
                         <option value="">está em…</option>
                         @foreach($entries as $e)
@@ -123,7 +123,7 @@
                 <p class="text-gray-600 text-xs">Sem fichas para adicionar. Crie NPCs na aba <span class="text-gray-300">Fichas</span>.</p>
             @else
                 <div class="flex items-center gap-2" x-data="{ sel: '' }">
-                    <select x-model="sel"
+                    <select x-model="sel" dusk="combat-add-select"
                         class="bg-gray-900 border border-gray-700 rounded px-2 py-1 text-xs text-gray-200 focus:border-amber-500 focus:ring-0 focus:outline-none">
                         <option value="">Adicionar ao combate…</option>
                         @foreach($available as $opt)
@@ -148,7 +148,7 @@
 
                     {{-- Cabeçalho --}}
                     <div class="flex items-center gap-2">
-                        <button type="button" @click="toggle({{ $c->id }})" class="flex items-center gap-2 min-w-0 flex-1 text-left">
+                        <button type="button" @click="toggle({{ $c->id }})" dusk="combat-expand-{{ $c->id }}" class="flex items-center gap-2 min-w-0 flex-1 text-left">
                             <div class="w-9 h-9 rounded-md overflow-hidden bg-gray-900 ring-1 ring-gray-700 flex items-center justify-center flex-shrink-0">
                                 @if($c->avatar)
                                     <img src="{{ Storage::url($c->avatar) }}" alt="" class="w-full h-full object-cover">
@@ -168,7 +168,7 @@
                     {{-- Barras --}}
                     <div class="mt-1.5 space-y-1">
                         <div class="flex items-center gap-1">
-                            <button type="button" wire:click="adjustHp({{ $c->id }}, -5)" class="text-[10px] font-bold text-gray-500 hover:text-red-400">«</button>
+                            <button type="button" wire:click="adjustHp({{ $c->id }}, -5)" dusk="combat-hp-down-{{ $c->id }}" class="text-[10px] font-bold text-gray-500 hover:text-red-400">«</button>
                             <button type="button" wire:click="adjustHp({{ $c->id }}, -1)" class="text-[10px] font-bold text-gray-500 hover:text-red-400">‹</button>
                             <div class="relative flex-1 h-3 bg-gray-700 rounded overflow-hidden">
                                 <div class="absolute inset-y-0 left-0 bg-gradient-to-r from-red-800 to-red-500" style="width: {{ $hpPct }}%"></div>
@@ -193,7 +193,7 @@
                     <div x-show="expandedId === {{ $c->id }}" x-cloak class="mt-2 pt-2 border-t border-gray-700">
                         <div class="flex items-center gap-1 mb-2">
                             @foreach(['habilidades' => 'Habilidades', 'status' => 'Status'] as $sk => $sl)
-                                <button type="button" @click="setSub({{ $c->id }}, '{{ $sk }}')"
+                                <button type="button" @click="setSub({{ $c->id }}, '{{ $sk }}')" dusk="combat-sub-{{ $sk }}-{{ $c->id }}"
                                     :class="sub({{ $c->id }}) === '{{ $sk }}' ? 'bg-gray-700 text-amber-300' : 'bg-gray-900 text-gray-400 hover:text-gray-200'"
                                     class="px-2 py-0.5 text-[11px] font-medium rounded transition-colors">{{ $sl }}</button>
                             @endforeach
@@ -267,6 +267,7 @@
                             <div class="flex flex-wrap gap-1 mb-2">
                                 @foreach($attrs as $label => $val)
                                     <button type="button" @click="rollAttr({{ $c->id }}, @js($label), {{ (int) $val }})"
+                                        dusk="combat-stat-{{ $c->id }}-{{ \Illuminate\Support\Str::slug($label) }}"
                                         class="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] rounded bg-gray-900 border border-gray-700 text-gray-200 hover:border-amber-400">
                                         <span>{{ $label }}</span><span class="font-mono text-amber-300">{{ $val }}</span>
                                     </button>
