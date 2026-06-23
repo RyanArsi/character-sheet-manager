@@ -96,6 +96,84 @@ class CombatPanelTest extends TestCase
             ->call('addCombatant', $npcOutra->id);
     }
 
+    public function test_rolar_iniciativa_adiciona_a_ordem(): void
+    {
+        Event::fake([\App\Events\CampaignInitiativeUpdated::class, CampaignEventBroadcast::class]);
+        [$campaign, $master] = $this->campaign();
+        $npc = $this->npc($campaign, $master, ['agilidade' => 5, 'name' => 'Orochimaru']);
+
+        Livewire::actingAs($master)
+            ->test(CombatPanel::class, ['campaignId' => $campaign->id])
+            ->call('rollInitiative', $npc->id);
+
+        $state = $campaign->fresh()->initiative;
+        $entry = collect($state['entries'])->firstWhere('character_id', $npc->id);
+
+        $this->assertNotNull($entry);
+        $this->assertTrue($entry['is_npc']);
+        $this->assertSame('Orochimaru', $entry['name']);
+        $this->assertGreaterThanOrEqual(6, $entry['roll']);  // d20(>=1) + 5
+        Event::assertDispatched(\App\Events\CampaignInitiativeUpdated::class);
+    }
+
+    public function test_passar_turno_avanca_e_conta_rodada(): void
+    {
+        [$campaign, $master] = $this->campaign();
+        $a = $this->npc($campaign, $master, ['name' => 'A', 'agilidade' => 9]);
+        $b = $this->npc($campaign, $master, ['name' => 'B', 'agilidade' => 1]);
+
+        $component = Livewire::actingAs($master)->test(CombatPanel::class, ['campaignId' => $campaign->id]);
+        $component->call('rollInitiative', $a->id)->call('rollInitiative', $b->id);
+
+        $component->call('passTurn');
+        $first = $campaign->fresh()->initiative['current_id'];
+        $this->assertNotNull($first);
+
+        // Avança por todos e dá a volta → rodada 2
+        $component->call('passTurn')->call('passTurn');
+        $this->assertSame(2, $campaign->fresh()->initiative['round']);
+    }
+
+    public function test_adicionar_e_remover_condicao(): void
+    {
+        [$campaign, $master] = $this->campaign();
+        $npc = $this->npc($campaign, $master, ['name' => 'Alvo']);
+
+        $component = Livewire::actingAs($master)->test(CombatPanel::class, ['campaignId' => $campaign->id]);
+        $component->call('rollInitiative', $npc->id);
+        $entryId = $campaign->fresh()->initiative['entries'][0]['id'];
+
+        $component->call('addCondition', 'Atordoado', $entryId, 2);
+        $conds = $campaign->fresh()->initiative['conditions'];
+        $this->assertCount(1, $conds);
+        $this->assertSame('Atordoado', $conds[0]['name']);
+
+        $component->call('removeCondition', $conds[0]['id']);
+        $this->assertCount(0, $campaign->fresh()->initiative['conditions']);
+    }
+
+    public function test_jogador_nao_passa_turno(): void
+    {
+        [$campaign, , $player] = $this->campaign();
+
+        Livewire::actingAs($player)
+            ->test(CombatPanel::class, ['campaignId' => $campaign->id])
+            ->assertForbidden();
+    }
+
+    public function test_share_media_transmite_url(): void
+    {
+        Event::fake([\App\Events\CampaignMediaBroadcast::class]);
+        [$campaign, $master] = $this->campaign();
+
+        Livewire::actingAs($master)
+            ->test(CombatPanel::class, ['campaignId' => $campaign->id])
+            ->call('shareMedia', 'https://exemplo.test/jutsu.mp3', 80);
+
+        Event::assertDispatched(\App\Events\CampaignMediaBroadcast::class, fn ($e) =>
+            $e->url === 'https://exemplo.test/jutsu.mp3' && $e->volume === 80);
+    }
+
     public function test_share_roll_transmite_para_o_feed(): void
     {
         Event::fake([CampaignEventBroadcast::class]);
