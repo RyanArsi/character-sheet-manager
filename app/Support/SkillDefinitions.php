@@ -5,23 +5,32 @@ namespace App\Support;
 class SkillDefinitions
 {
     const ALL = [
-        ['name' => 'Percepção',          'attribute' => 'sab'],
-        ['name' => 'Sensitivo',           'attribute' => 'sab'],
-        ['name' => 'Controle de Chakra',  'attribute' => 'int'],
-        ['name' => 'Bukijutsu',           'attribute' => 'tai'],
-        ['name' => 'Shurikenjutsu',       'attribute' => 'tai'],
-        ['name' => 'Selamento',           'attribute' => 'nin'],
-        ['name' => 'Invocação',           'attribute' => 'nin'],
-        ['name' => 'Medicina',            'attribute' => 'int'],
-        ['name' => 'Furtividade',         'attribute' => 'agi'],
-        ['name' => 'Prestidigitação',     'attribute' => 'agi'],
-        ['name' => 'Rastreamento',        'attribute' => 'sab'],
-        ['name' => 'Reflexos',            'attribute' => 'agi/tai'],
-        ['name' => 'Sobrevivência',       'attribute' => 'int'],
-        ['name' => 'Acrobacia',           'attribute' => 'tai'],
-        ['name' => 'Persuasão',           'attribute' => 'car'],
-        ['name' => 'Enganação',           'attribute' => 'car'],
-        ['name' => 'Conhecimento',        'attribute' => 'int'],
-        ['name' => 'Intimidação',         'attribute' => 'car'],
+        // Perícias gerais
+        ['name' => 'Percepção',          'attribute' => 'sab', 'category' => 'pericia'],
+        ['name' => 'Sensitivo',          'attribute' => 'sab', 'category' => 'pericia'],
+        ['name' => 'Controle de Chakra', 'attribute' => 'int', 'category' => 'pericia'],
+        ['name' => 'Selamento',          'attribute' => 'nin', 'category' => 'pericia'],
+        ['name' => 'Invocação',          'attribute' => 'nin', 'category' => 'pericia'],
+        ['name' => 'Medicina',           'attribute' => 'int', 'category' => 'pericia'],
+        ['name' => 'Furtividade',        'attribute' => 'agi', 'category' => 'pericia'],
+        ['name' => 'Prestidigitação',    'attribute' => 'agi', 'category' => 'pericia'],
+        ['name' => 'Rastreamento',       'attribute' => 'sab', 'category' => 'pericia'],
+        ['name' => 'Sobrevivência',      'attribute' => 'int', 'category' => 'pericia'],
+        ['name' => 'Acrobacia',          'attribute' => 'tai', 'category' => 'pericia'],
+        ['name' => 'Persuasão',          'attribute' => 'car', 'category' => 'pericia'],
+        ['name' => 'Enganação',          'attribute' => 'car', 'category' => 'pericia'],
+        ['name' => 'Conhecimento',       'attribute' => 'int', 'category' => 'pericia'],
+        ['name' => 'Intimidação',        'attribute' => 'car', 'category' => 'pericia'],
+
+        // Resistências
+        ['name' => 'Reflexos',  'attribute' => 'agi/tai', 'category' => 'resistencia'],
+        ['name' => 'Fortitude', 'attribute' => 'con',     'category' => 'resistencia'],
+        ['name' => 'Vontade',   'attribute' => 'sab',     'category' => 'resistencia'],
+
+        // Combate
+        ['name' => 'Daken-jutsu',     'attribute' => 'tai', 'category' => 'combate'],
+        ['name' => 'Bukijutsu',       'attribute' => 'tai', 'category' => 'combate'],
+        ['name' => 'Shurikenjutsu',   'attribute' => 'tai', 'category' => 'combate'],
+        ['name' => 'Ataque-ninjutsu', 'attribute' => 'nin', 'category' => 'combate'],
     ];
 }

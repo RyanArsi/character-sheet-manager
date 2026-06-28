@@ -68,7 +68,7 @@ class CampaignSheetsTest extends TestCase
         $this->assertSame($master->id, $sheet->user_id);
         $this->assertSame($group->id, $sheet->sheet_group_id);
         // Skills semeadas como numa ficha normal
-        $this->assertSame(18, $sheet->skills()->count());
+        $this->assertSame(count(\App\Support\SkillDefinitions::ALL), $sheet->skills()->count());
     }
 
     public function test_ficha_de_npc_nao_aparece_para_jogador_nem_no_dashboard(): void

@@ -88,6 +88,7 @@ class CampaignSheets extends Component
                 $character->skills()->create([
                     'name'      => $def['name'],
                     'attribute' => $def['attribute'],
+                    'category'  => $def['category'],
                 ]);
             }
 

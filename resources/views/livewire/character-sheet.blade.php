@@ -16,6 +16,8 @@ function characterSheet(cid, campaigns) {
         lockAtributos: false,
         lockEspec: false,
         lockPericias: false,
+        lockResist: false,
+        lockCombate: false,
 
         // Rolagem de dados
         roll: { kind: 'attr', label: '', die: 0, bonus: 0, total: 0, name: '', lines: [], chakraSpent: 0, visible: false, timer: null },
@@ -61,6 +63,59 @@ function characterSheet(cid, campaigns) {
         condName: '',
         condTarget: '',
         condTurns: 1,
+
+        // Menu de contexto (botão direito) para trocar o atributo de rolagem de uma perícia.
+        // Mostra o nome inteiro, mas guarda/exibe a abreviação (igual aos padrões).
+        skillMenu: { open: false, x: 0, y: 0, index: null },
+        skillAttrs: [
+            { label: 'Força',        abbr: 'for' },
+            { label: 'Agilidade',    abbr: 'agi' },
+            { label: 'Constituição', abbr: 'con' },
+            { label: 'Inteligência', abbr: 'int' },
+            { label: 'Sabedoria',    abbr: 'sab' },
+            { label: 'Carisma',      abbr: 'car' },
+            { label: 'Ninjutsu',     abbr: 'nin' },
+            { label: 'Genjutsu',     abbr: 'gen' },
+            { label: 'Taijutsu',     abbr: 'tai' },
+        ],
+
+        openSkillMenu(e, i) {
+            this.skillMenu = {
+                open: true,
+                x: Math.min(e.clientX, window.innerWidth - 170),
+                y: Math.min(e.clientY, window.innerHeight - 340),
+                index: i,
+            };
+        },
+        setSkillAttr(abbr) {
+            if (this.skillMenu.index !== null) {
+                this.$wire.setSkillAttribute(this.skillMenu.index, abbr);
+            }
+            this.skillMenu.open = false;
+        },
+
+        // Resolve o atributo padrão de uma perícia (abreviação OU nome) para seu valor.
+        // Em combos "agi/tai", usa o primeiro.
+        attrValue(attr) {
+            if (! attr) return 0;
+            const first = attr.split('/')[0];
+            const norm = s => (s || '').toString().toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '').trim();
+            const map = { for: 'forca', agi: 'agilidade', con: 'constituicao', int: 'inteligencia',
+                          sab: 'sabedoria', car: 'carisma', nin: 'ninjutsu', gen: 'genjutsu', tai: 'taijutsu' };
+            const key = norm(first);
+            return this.statValue(map[key] || first) || 0;
+        },
+
+        // Rolagem de perícia: d20 + valor do atributo padrão + valor + (treinamento * 2).
+        rollSkill(i) {
+            const s = (this.$wire.get('skills') || [])[i];
+            if (! s) return;
+            const attr  = this.attrValue(s.attribute);
+            const value = parseInt(s.value) || 0;
+            const train = (parseInt(s.training_level) || 0) * 2;
+            this.rollDice(s.name, attr + value + train);
+        },
 
         rollDice(label, bonus) {
             this.playDiceSound();
@@ -505,20 +560,38 @@ function characterSheet(cid, campaigns) {
                 class="w-full bg-transparent text-center text-gray-300 text-xs border-0 border-b border-transparent focus:border-amber-500 focus:ring-0 focus:outline-none pb-1 placeholder-gray-500"
             >
 
-            {{-- Nível --}}
-            <div class="flex items-center justify-center gap-2 mt-1">
-                <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nível</span>
-                <button type="button" wire:click="levelDown"
-                    class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
-                <input
-                    type="number"
-                    min="1"
-                    wire:model.live="level"
-                    class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                >
-                <button type="button" wire:click="levelUp"
-                    title="Subir de nível"
-                    class="w-5 h-5 flex items-center justify-center rounded bg-amber-600 hover:bg-amber-500 text-white text-xs leading-none">+</button>
+            {{-- Nível + Pontos de Treinamento (coluna dividida) --}}
+            <div class="grid grid-cols-2 divide-x divide-gray-700 mt-2">
+
+                {{-- Nível --}}
+                <div class="flex flex-col items-center gap-1.5 px-1">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nível</span>
+                    <div class="flex items-center gap-1.5">
+                        <button type="button" wire:click="levelDown"
+                            class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none">−</button>
+                        <input
+                            type="number"
+                            min="1"
+                            wire:model.live="level"
+                            class="w-12 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        >
+                        <button type="button" wire:click="levelUp"
+                            title="Subir de nível"
+                            class="w-5 h-5 flex items-center justify-center rounded bg-amber-600 hover:bg-amber-500 text-white text-xs leading-none">+</button>
+                    </div>
+                </div>
+
+                {{-- Pontos de Treinamento --}}
+                <div class="flex flex-col items-center gap-1.5 px-1">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Pontos de Treinamento</span>
+                    <input
+                        type="text"
+                        maxlength="12"
+                        wire:model.live="pt"
+                        placeholder="—"
+                        class="w-24 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none placeholder-gray-600"
+                    >
+                </div>
             </div>
 
         </div>
@@ -679,7 +752,7 @@ function characterSheet(cid, campaigns) {
                             wire:click="adjustAttr('{{ $field }}', -1)"
                             :disabled="lockAtributos"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none disabled:cursor-not-allowed">−</button>
-                        <input type="number" wire:model.live="{{ $field }}" min="0" max="30"
+                        <input type="number" wire:model.live="{{ $field }}" max="30"
                             :disabled="lockAtributos"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         <button type="button"
@@ -727,7 +800,7 @@ function characterSheet(cid, campaigns) {
                             wire:click="adjustAttr('{{ $field }}', -1)"
                             :disabled="lockEspec"
                             class="w-5 h-5 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs leading-none disabled:cursor-not-allowed">−</button>
-                        <input type="number" wire:model.live="{{ $field }}" min="0"
+                        <input type="number" wire:model.live="{{ $field }}"
                             :disabled="lockEspec"
                             class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-sm font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
                         <button type="button"
@@ -759,41 +832,9 @@ function characterSheet(cid, campaigns) {
             </div>
             <div class="space-y-1.5">
                 @foreach($skills as $i => $skill)
-                @php
-                    $lvl = $skill['training_level'] ?? 0;
-                    $bonus = $lvl * 2;
-                @endphp
-                <div class="flex items-center gap-1.5">
-                    {{-- Botão de treinamento ciclável --}}
-                    <button type="button"
-                        wire:click="cycleTraining({{ $i }})"
-                        :disabled="lockPericias"
-                        title="{{ $lvl === 0 ? 'Sem treinamento' : '+'.($lvl*2) }}"
-                        @class([
-                            'w-5 h-5 rounded border flex items-center justify-center text-[10px] font-black flex-shrink-0 transition-all duration-200 select-none disabled:cursor-not-allowed',
-                            'border-gray-600 bg-gray-800 text-transparent'        => $lvl === 0,
-                            'border-green-500 bg-green-900/40 text-green-400'     => $lvl === 1,
-                            'border-blue-500 bg-blue-900/40 text-blue-400'        => $lvl === 2,
-                            'border-yellow-400 bg-yellow-900/40 text-yellow-300'  => $lvl === 3,
-                            'border-orange-400 bg-orange-900/40 text-orange-300 training-glow-orange' => $lvl === 4,
-                            'border-red-500 bg-red-900/40 text-red-400 training-glow-red'             => $lvl === 5,
-                        ])
-                    >{{ $lvl > 0 ? '+'.$bonus : '' }}</button>
-
-                    {{-- Nome clicável --}}
-                    <button type="button"
-                        @click="rollDice('{{ $skill['name'] }}', parseInt($wire.skills[{{ $i }}].value) + {{ $bonus }})"
-                        class="flex-1 text-xs leading-tight text-left hover:text-white transition-colors cursor-pointer {{ $lvl > 0 ? 'font-semibold text-white' : 'text-gray-300' }}">
-                        {{ $skill['name'] }}
-                        <span class="text-gray-600 text-[10px]">({{ $skill['attribute'] }})</span>
-                    </button>
-
-                    {{-- Valor --}}
-                    <input type="number"
-                        wire:model.live="skills.{{ $i }}.value"
-                        :disabled="lockPericias"
-                        class="w-10 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-white text-xs font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed">
-                </div>
+                    @if(($skill['category'] ?? 'pericia') === 'pericia')
+                        @include('livewire.partials.skill-row', ['i' => $i, 'skill' => $skill, 'lock' => 'lockPericias'])
+                    @endif
                 @endforeach
             </div>
         </div>
@@ -888,6 +929,90 @@ function characterSheet(cid, campaigns) {
 
           {{-- ===== Painel de iniciativa, turnos e condições ===== --}}
           <div class="flex-1 min-w-0 flex flex-col overflow-y-auto sidebar-scroll p-4">
+
+            {{-- ===== Defesa (CA) + Resistências + Combate (acima da iniciativa) ===== --}}
+            @php
+                $secOrder = [
+                    'resistencia' => ['Reflexos', 'Fortitude', 'Vontade'],
+                    'combate'     => ['Daken-jutsu', 'Bukijutsu', 'Shurikenjutsu', 'Ataque-ninjutsu'],
+                ];
+                $secGroups = ['resistencia' => [], 'combate' => []];
+                foreach ($skills as $i => $s) {
+                    $cat = $s['category'] ?? 'pericia';
+                    if (isset($secGroups[$cat])) {
+                        $secGroups[$cat][$i] = $s;
+                    }
+                }
+                foreach ($secGroups as $cat => &$arr) {
+                    $ord = $secOrder[$cat];
+                    $pos = fn ($name) => ($p = array_search($name, $ord, true)) === false ? 999 : $p;
+                    uasort($arr, fn ($a, $b) => $pos($a['name']) <=> $pos($b['name']));
+                }
+                unset($arr);
+            @endphp
+            <div class="flex items-start gap-4 pb-4 mb-3 border-b border-gray-700 flex-shrink-0">
+
+                {{-- Escudo / CA --}}
+                <div class="flex flex-col items-center flex-shrink-0">
+                    <div class="relative w-14 h-14">
+                        <svg viewBox="0 0 24 24" class="w-full h-full text-gray-800" fill="currentColor"
+                            stroke="#f59e0b" stroke-width="1" stroke-linejoin="round">
+                            <path d="M12 2 L20 5 V11 C20 16.5 16.4 20.2 12 22 C7.6 20.2 4 16.5 4 11 V5 Z"/>
+                        </svg>
+                        <input type="number" wire:model.live="defense" title="Classe de Armadura (CA)"
+                            class="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 w-12 bg-transparent border-0 text-center text-lg font-black text-white focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none px-0 leading-none">
+                    </div>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-amber-500 -mt-0.5">CA</span>
+                </div>
+
+                {{-- Resistências --}}
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest">Resistências</h3>
+                        <button type="button" @click="lockResist = !lockResist"
+                            :title="lockResist ? 'Destravar' : 'Travar'"
+                            class="text-gray-600 hover:text-gray-300 transition-colors">
+                            <svg x-show="!lockResist" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                            </svg>
+                            <svg x-show="lockResist" class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="space-y-1.5">
+                        @foreach($secGroups['resistencia'] as $i => $skill)
+                            @include('livewire.partials.skill-row', ['i' => $i, 'skill' => $skill, 'lock' => 'lockResist'])
+                        @endforeach
+                    </div>
+                </div>
+
+                {{-- Combate --}}
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-xs font-bold text-amber-500 uppercase tracking-widest">Combate</h3>
+                        <button type="button" @click="lockCombate = !lockCombate"
+                            :title="lockCombate ? 'Destravar' : 'Travar'"
+                            class="text-gray-600 hover:text-gray-300 transition-colors">
+                            <svg x-show="!lockCombate" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                            </svg>
+                            <svg x-show="lockCombate" class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="space-y-1.5">
+                        @foreach($secGroups['combate'] as $i => $skill)
+                            @include('livewire.partials.skill-row', ['i' => $i, 'skill' => $skill, 'lock' => 'lockCombate'])
+                        @endforeach
+                    </div>
+                </div>
+            </div>
 
             <template x-if="!shareCampaignId">
                 <div class="m-auto text-center text-gray-600 text-xs px-6">
@@ -1267,6 +1392,24 @@ function characterSheet(cid, campaigns) {
                 </template>
             </div>
         </div>
+    </div>
+
+    {{-- Menu de contexto: trocar o atributo de rolagem de uma perícia (botão direito) --}}
+    <div x-show="skillMenu.open" x-cloak
+        @click.outside="skillMenu.open = false"
+        @keydown.escape.window="skillMenu.open = false"
+        :style="`left:${skillMenu.x}px; top:${skillMenu.y}px;`"
+        class="fixed z-[60] min-w-[150px] bg-gray-800 border border-gray-600 rounded-md shadow-xl py-1 text-xs">
+        <div class="px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 border-b border-gray-700 mb-1">
+            Rolar com
+        </div>
+        <template x-for="attr in skillAttrs" :key="attr.abbr">
+            <button type="button" @click="setSkillAttr(attr.abbr)"
+                class="flex w-full items-center justify-between gap-3 px-3 py-1 text-gray-300 hover:bg-amber-600 hover:text-white transition-colors">
+                <span x-text="attr.label"></span>
+                <span class="text-[10px] text-gray-500" x-text="attr.abbr"></span>
+            </button>
+        </template>
     </div>
 
     {{-- Alerta de subida de nível --}}

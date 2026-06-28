@@ -65,7 +65,7 @@ class CharacterSheetTest extends TestCase
     // Criação
     // -------------------------------------------------------------------------
 
-    public function test_criar_ficha_gera_personagem_com_18_pericias(): void
+    public function test_criar_ficha_gera_personagem_com_pericias_padrao(): void
     {
         $user = User::factory()->create();
 
@@ -76,7 +76,7 @@ class CharacterSheetTest extends TestCase
         $character = $user->characters()->first();
 
         $this->assertNotNull($character);
-        $this->assertCount(18, $character->skills);
+        $this->assertCount(count(SkillDefinitions::ALL), $character->skills);
     }
 
     public function test_skills_criadas_correspondem_as_definicoes(): void
@@ -112,6 +112,34 @@ class CharacterSheetTest extends TestCase
             'id'   => $character->id,
             'name' => 'Naruto Uzumaki',
         ]);
+    }
+
+    public function test_pontos_de_treinamento_persistem_no_banco(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->set('pt', '3d6 + 2')
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertDispatched('saved');
+
+        $this->assertDatabaseHas('characters', [
+            'id' => $character->id,
+            'pt' => '3d6 + 2',
+        ]);
+    }
+
+    public function test_pontos_de_treinamento_limitados_a_12_caracteres(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->set('pt', str_repeat('x', 13))
+            ->call('save')
+            ->assertHasErrors(['pt' => 'max']);
     }
 
     public function test_alterar_barras_e_salvar_persiste_no_banco(): void
@@ -318,9 +346,66 @@ class CharacterSheetTest extends TestCase
         $component->set('skills.0.value', '');
         $this->assertSame(0, $component->get('skills.0.value'));
 
+        // Atributos e especializações apagados também valem 0 (não podem quebrar)
+        $component->set('forca', '');
+        $this->assertSame(0, $component->get('forca'));
+
+        $component->set('inteligencia', '');
+        $this->assertSame(0, $component->get('inteligencia'));
+
+        $component->set('taijutsu', '');
+        $this->assertSame(0, $component->get('taijutsu'));
+
         // Nível tem regra própria: vazio cai para o mínimo 1
         $component->set('level', '');
         $this->assertSame(1, $component->get('level'));
+    }
+
+    public function test_atributos_e_especializacoes_aceitam_valores_negativos(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        // Digitar negativo é mantido
+        $component->set('forca', -2);
+        $this->assertSame(-2, $component->get('forca'));
+
+        // Botão − pode levar abaixo de zero
+        $component->set('taijutsu', 0)->call('adjustAttr', 'taijutsu', -1);
+        $this->assertSame(-1, $component->get('taijutsu'));
+
+        // Persiste no banco
+        $component->call('save')->assertHasNoErrors();
+        $this->assertDatabaseHas('characters', [
+            'id'       => $character->id,
+            'forca'    => -2,
+            'taijutsu' => -1,
+        ]);
+    }
+
+    public function test_trocar_atributo_de_rolagem_da_pericia(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        $component->call('setSkillAttribute', 0, 'for');
+        $this->assertSame('for', $component->get('skills.0.attribute'));
+
+        // Persiste no banco ao salvar
+        $skillId = $component->get('skills.0.id');
+        $component->call('save')->assertHasNoErrors();
+        $this->assertDatabaseHas('character_skills', [
+            'id'        => $skillId,
+            'attribute' => 'for',
+        ]);
+
+        // Valor inválido é ignorado (mantém o anterior)
+        $component->call('setSkillAttribute', 0, 'Inexistente');
+        $this->assertSame('for', $component->get('skills.0.attribute'));
     }
 
     // -------------------------------------------------------------------------

@@ -21,6 +21,7 @@ class CharacterFactory extends Factory
             'hp_max'         => 20,
             'chakra_current' => 20,
             'chakra_max'     => 20,
+            'defense'        => 0,
             'forca'          => 10,
             'agilidade'      => 10,
             'constituicao'   => 10,
@@ -40,6 +41,7 @@ class CharacterFactory extends Factory
                 $character->skills()->create([
                     'name'      => $def['name'],
                     'attribute' => $def['attribute'],
+                    'category'  => $def['category'],
                     'value'     => 0,
                     'trained'   => false,
                 ]);

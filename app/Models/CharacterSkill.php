@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CharacterSkill extends Model
 {
-    protected $fillable = ['character_id', 'name', 'attribute', 'value', 'trained'];
+    protected $fillable = ['character_id', 'name', 'attribute', 'category', 'value', 'trained', 'training_level'];
 
     protected $casts = [
         'value' => 'integer',

@@ -18,6 +18,7 @@ class CharacterController extends Controller
             $character->skills()->create([
                 'name' => $def['name'],
                 'attribute' => $def['attribute'],
+                'category' => $def['category'],
             ]);
         }
 
@@ -34,10 +35,12 @@ class CharacterController extends Controller
             'name'           => $data['name']           ?? null,
             'cla'            => $data['cla']            ?? null,
             'level'          => $data['level']          ?? null,
+            'pt'             => $data['pt']             ?? null,
             'hp_current'     => $data['hp_current']     ?? null,
             'hp_max'         => $data['hp_max']         ?? null,
             'chakra_current' => $data['chakra_current'] ?? null,
             'chakra_max'     => $data['chakra_max']     ?? null,
+            'defense'        => $data['defense']        ?? null,
             'forca'          => $data['forca']          ?? null,
             'agilidade'      => $data['agilidade']      ?? null,
             'constituicao'   => $data['constituicao']   ?? null,
@@ -53,10 +56,12 @@ class CharacterController extends Controller
             foreach ($data['skills'] as $skill) {
                 $character->skills()
                     ->where('id', $skill['id'])
-                    ->update([
-                        'value'   => $skill['value'],
-                        'trained' => $skill['trained'],
-                    ]);
+                    ->update(array_filter([
+                        'value'          => $skill['value'] ?? null,
+                        'trained'        => $skill['trained'] ?? null,
+                        'training_level' => $skill['training_level'] ?? null,
+                        'attribute'      => $skill['attribute'] ?? null,
+                    ], fn ($v) => $v !== null));
             }
         }
 

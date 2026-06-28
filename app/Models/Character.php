@@ -14,7 +14,7 @@ class Character extends Model
 
     protected $fillable = [
         'user_id', 'campaign_id', 'sheet_group_id', 'name', 'race', 'village', 'cla', 'level', 'xp',
-        'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
+        'hp_current', 'hp_max', 'chakra_current', 'chakra_max', 'defense', 'pt',
         'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
         'ninjutsu', 'genjutsu', 'taijutsu',
         'space_mochila', 'space_carregando', 'space_pergaminhos',
@@ -28,6 +28,7 @@ class Character extends Model
         'hp_max'         => 'integer',
         'chakra_current' => 'integer',
         'chakra_max'     => 'integer',
+        'defense'        => 'integer',
         'forca'          => 'integer',
         'agilidade'      => 'integer',
         'constituicao'   => 'integer',

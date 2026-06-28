@@ -43,16 +43,25 @@ class CharacterSheet extends Component
     public $chakra_current = 20;
     public $chakra_max = 20;
 
-    public int $forca = 0;
-    public int $agilidade = 0;
-    public int $constituicao = 0;
-    public int $inteligencia = 0;
-    public int $sabedoria = 0;
-    public int $carisma = 0;
+    // Classe de Armadura (CA) — número estático no escudo.
+    public $defense = 0;
 
-    public int $ninjutsu = 0;
-    public int $genjutsu = 0;
-    public int $taijutsu = 0;
+    // Pontos de treinamento (pt) — texto curto, máx. 12 caracteres.
+    #[Rule('nullable|string|max:12')]
+    public ?string $pt = '';
+
+    // Sem tipo estrito: ao apagar o input o Livewire recebe "" e um `public int`
+    // lançaria TypeError. O vazio é normalizado para 0 em updated() (zeroable).
+    public $forca = 0;
+    public $agilidade = 0;
+    public $constituicao = 0;
+    public $inteligencia = 0;
+    public $sabedoria = 0;
+    public $carisma = 0;
+
+    public $ninjutsu = 0;
+    public $genjutsu = 0;
+    public $taijutsu = 0;
 
     public array $skills = [];
 
@@ -88,8 +97,8 @@ class CharacterSheet extends Component
             ])
             ->toArray();
         $this->fill($character->only([
-            'name', 'cla', 'level', 'xp',
-            'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
+            'name', 'cla', 'level', 'xp', 'pt',
+            'hp_current', 'hp_max', 'chakra_current', 'chakra_max', 'defense',
             'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
             'ninjutsu', 'genjutsu', 'taijutsu',
         ]));
@@ -98,11 +107,12 @@ class CharacterSheet extends Component
 
         $this->skills = $character->skills()
             ->orderBy('id')
-            ->get(['id', 'name', 'attribute', 'value', 'trained', 'training_level'])
+            ->get(['id', 'name', 'attribute', 'category', 'value', 'trained', 'training_level'])
             ->map(fn ($s) => [
                 'id'             => $s->id,
                 'name'           => $s->name,
                 'attribute'      => $s->attribute,
+                'category'       => $s->category,
                 'value'          => $s->value,
                 'trained'        => $s->trained,
                 'training_level' => $s->training_level,
@@ -122,7 +132,9 @@ class CharacterSheet extends Component
     /** Apagar um input numérico envia "" — vale 0 (vida, chakra e valores de perícia). */
     protected function normalizeNumeric(?string $property): void
     {
-        $zeroable = ['hp_current', 'hp_max', 'chakra_current', 'chakra_max'];
+        $zeroable = ['hp_current', 'hp_max', 'chakra_current', 'chakra_max', 'defense',
+                     'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
+                     'ninjutsu', 'genjutsu', 'taijutsu'];
 
         if (in_array($property, $zeroable, true)) {
             $this->{$property} = is_numeric($this->{$property}) ? (int) $this->{$property} : 0;
@@ -143,7 +155,7 @@ class CharacterSheet extends Component
     // Restaura estado vindo do localStorage (chamado pelo Alpine no init)
     public function restoreFromSession(array $data): void
     {
-        $fields = ['name', 'cla', 'level', 'hp_current', 'hp_max', 'chakra_current', 'chakra_max',
+        $fields = ['name', 'cla', 'level', 'pt', 'hp_current', 'hp_max', 'chakra_current', 'chakra_max', 'defense',
                    'forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
                    'ninjutsu', 'genjutsu', 'taijutsu'];
 
@@ -209,10 +221,12 @@ class CharacterSheet extends Component
             'cla'            => $this->cla,
             'level'          => $this->level,
             'xp'             => $this->xp,
+            'pt'             => $this->pt,
             'hp_current'     => $this->hp_current,
             'hp_max'         => $this->hp_max,
             'chakra_current' => $this->chakra_current,
             'chakra_max'     => $this->chakra_max,
+            'defense'        => (int) $this->defense,
             'forca'          => $this->forca,
             'agilidade'      => $this->agilidade,
             'constituicao'   => $this->constituicao,
@@ -231,6 +245,7 @@ class CharacterSheet extends Component
                     'value'          => $skill['value'],
                     'trained'        => $skill['trained'],
                     'training_level' => $skill['training_level'] ?? 0,
+                    'attribute'      => $skill['attribute'] ?? null,
                 ]);
         }
 
@@ -246,7 +261,8 @@ class CharacterSheet extends Component
             return;
         }
 
-        $this->$field = max(0, $this->$field + $delta);
+        // Permite valores negativos (penalidades) — sem piso em 0.
+        $this->$field = (int) $this->$field + $delta;
     }
 
     public function cycleTraining(int $index): void
@@ -256,6 +272,21 @@ class CharacterSheet extends Component
         $current = $this->skills[$index]['training_level'] ?? 0;
         $this->skills[$index]['training_level'] = ($current + 1) % 6;
         $this->skills[$index]['trained'] = $this->skills[$index]['training_level'] > 0;
+    }
+
+    /** Atributos que governam a rolagem de uma perícia (abreviações, como nos padrões). */
+    public const SKILL_ATTRIBUTES = [
+        'for', 'agi', 'con', 'int', 'sab', 'car', 'nin', 'gen', 'tai',
+    ];
+
+    /** Troca o atributo padrão de rolagem de uma perícia (menu de contexto). */
+    public function setSkillAttribute(int $index, string $attribute): void
+    {
+        if (! isset($this->skills[$index]) || ! in_array($attribute, self::SKILL_ATTRIBUTES, true)) {
+            return;
+        }
+
+        $this->skills[$index]['attribute'] = $attribute;
     }
 
     public function adjustHp(int $delta): void
@@ -287,10 +318,12 @@ class CharacterSheet extends Component
             'name'           => $this->name,
             'cla'            => $this->cla,
             'level'          => $this->level,
+            'pt'             => $this->pt,
             'hp_current'     => $this->hp_current,
             'hp_max'         => $this->hp_max,
             'chakra_current' => $this->chakra_current,
             'chakra_max'     => $this->chakra_max,
+            'defense'        => $this->defense,
             'forca'          => $this->forca,
             'agilidade'      => $this->agilidade,
             'constituicao'   => $this->constituicao,
