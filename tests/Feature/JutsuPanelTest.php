@@ -112,6 +112,38 @@ class JutsuPanelTest extends TestCase
         $this->assertFalse($character->jutsus()->where('jutsus.id', $jutsuAlheio->id)->exists());
     }
 
+    public function test_jutsu_oculto_some_na_ficha_para_jogador_mas_aparece_para_mestre_e_criador(): void
+    {
+        $master = User::factory()->create();
+        $player = User::factory()->create();
+        $other  = User::factory()->create();
+
+        $campaign = Campaign::create(['owner_id' => $master->id, 'name' => 'Vila da Folha']);
+        $campaign->members()->attach($master->id, ['role' => 'owner']);
+        $campaign->members()->attach($player->id, ['role' => 'player']);
+        $campaign->members()->attach($other->id, ['role' => 'player']);
+
+        $character = Character::factory()->create(['user_id' => $player->id]);
+        $campaign->characters()->attach($character->id);
+
+        // Oculto por outro membro + oculto pelo próprio dono da ficha
+        Jutsu::create(['user_id' => $other->id,  'name' => 'TecnicaSecreta', 'hidden' => true]);
+        Jutsu::create(['user_id' => $player->id, 'name' => 'SegredoProprio', 'hidden' => true]);
+
+        // Dono da ficha (não-mestre): na biblioteca não vê o oculto alheio, mas vê o próprio.
+        Livewire::actingAs($player)
+            ->test(JutsuPanel::class, ['characterId' => $character->id])
+            ->set('view', 'browse')
+            ->assertDontSee('TecnicaSecreta')
+            ->assertSee('SegredoProprio');
+
+        // Mestre da campanha vê o oculto de qualquer membro.
+        Livewire::actingAs($master)
+            ->test(JutsuPanel::class, ['characterId' => $character->id])
+            ->set('view', 'browse')
+            ->assertSee('TecnicaSecreta');
+    }
+
     public function test_criar_jutsu_registra_tags_no_dicionario(): void
     {
         [$user, $character] = $this->userWithCharacter();

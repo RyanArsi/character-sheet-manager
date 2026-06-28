@@ -56,6 +56,9 @@
             @if($equipment->media)
                 @include('livewire.partials.media-button', ['url' => $equipmentPayload['media'], 'volume' => $equipmentPayload['volume']])
             @endif
+            @if($equipment->hidden)
+                <span title="Oculto (só você e o mestre veem)" class="text-gray-500 text-[11px] flex-shrink-0">🚫</span>
+            @endif
         </div>
 
         {{-- Ações --}}

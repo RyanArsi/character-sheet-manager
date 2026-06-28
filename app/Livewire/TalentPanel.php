@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Campaign;
 use App\Models\Character;
 use App\Models\Tag;
 use App\Models\Talent;
@@ -78,6 +79,23 @@ class TalentPanel extends Component
         }
 
         return $ids->unique()->values();
+    }
+
+    /** O usuário logado é mestre (dono) de alguma campanha em que a ficha está? */
+    protected function isMaster(Character $character): bool
+    {
+        return Campaign::whereIn('id', $character->relatedCampaignIds())
+            ->where('owner_id', auth()->id())
+            ->exists();
+    }
+
+    /** Itens ocultos só aparecem para o criador ou o mestre. */
+    protected function visibleFilter(Character $character): \Closure
+    {
+        $uid = auth()->id();
+        $isMaster = $this->isMaster($character);
+
+        return fn ($item) => ! $item->hidden || $item->user_id === $uid || $isMaster;
     }
 
     // ---------- Navegação ----------
@@ -385,13 +403,16 @@ class TalentPanel extends Component
     public function render()
     {
         $character = $this->character();
+        $visible = $this->visibleFilter($character);
 
-        $assigned = $character->talents()->with('user')->orderBy('name')->get();
+        $assigned = $character->talents()->with('user')->orderBy('name')->get()
+            ->filter($visible)->values();
 
         $available = Talent::whereIn('user_id', $this->poolUserIds($character))
             ->with('user')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter($visible)->values();
 
         // Todas as tags existentes na biblioteca (para o filtro)
         $allTags = $available->flatMap(fn ($t) => $t->tags ?? [])->unique()->sort()->values();

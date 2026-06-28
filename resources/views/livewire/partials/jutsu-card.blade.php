@@ -69,6 +69,9 @@
                     @if($jutsu->media)
                         @include('livewire.partials.media-button', ['url' => $jutsuPayload['media'], 'volume' => $jutsuPayload['volume']])
                     @endif
+                    @if($jutsu->hidden)
+                        <span title="Oculto (só você e o mestre veem)" class="text-gray-500 text-[11px] flex-shrink-0">🚫</span>
+                    @endif
                 </div>
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     @if($jutsu->user_id === $authId)

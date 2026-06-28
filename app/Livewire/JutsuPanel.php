@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Campaign;
 use App\Models\Character;
 use App\Models\Jutsu;
 use App\Models\Tag;
@@ -78,6 +79,23 @@ class JutsuPanel extends Component
         }
 
         return $ids->unique()->values();
+    }
+
+    /** O usuário logado é mestre (dono) de alguma campanha em que a ficha está? */
+    protected function isMaster(Character $character): bool
+    {
+        return Campaign::whereIn('id', $character->relatedCampaignIds())
+            ->where('owner_id', auth()->id())
+            ->exists();
+    }
+
+    /** Itens ocultos só aparecem para o criador ou o mestre. */
+    protected function visibleFilter(Character $character): \Closure
+    {
+        $uid = auth()->id();
+        $isMaster = $this->isMaster($character);
+
+        return fn ($item) => ! $item->hidden || $item->user_id === $uid || $isMaster;
     }
 
     // ---------- Navegação ----------
@@ -385,13 +403,16 @@ class JutsuPanel extends Component
     public function render()
     {
         $character = $this->character();
+        $visible = $this->visibleFilter($character);
 
-        $assigned = $character->jutsus()->with('user')->orderBy('name')->get();
+        $assigned = $character->jutsus()->with('user')->orderBy('name')->get()
+            ->filter($visible)->values();
 
         $available = Jutsu::whereIn('user_id', $this->poolUserIds($character))
             ->with('user')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter($visible)->values();
 
         // Todas as tags existentes na biblioteca (para o filtro)
         $allTags = $available->flatMap(fn ($j) => $j->tags ?? [])->unique()->sort()->values();

@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Action;
+use App\Models\Campaign;
 use App\Models\Character;
 use App\Models\Tag;
 use App\Models\User;
@@ -60,6 +61,23 @@ class ActionPanel extends Component
         }
 
         return $ids->unique()->values();
+    }
+
+    /** O usuário logado é mestre (dono) de alguma campanha em que a ficha está? */
+    protected function isMaster(Character $character): bool
+    {
+        return Campaign::whereIn('id', $character->relatedCampaignIds())
+            ->where('owner_id', auth()->id())
+            ->exists();
+    }
+
+    /** Itens ocultos só aparecem para o criador ou o mestre. */
+    protected function visibleFilter(Character $character): \Closure
+    {
+        $uid = auth()->id();
+        $isMaster = $this->isMaster($character);
+
+        return fn ($item) => ! $item->hidden || $item->user_id === $uid || $isMaster;
     }
 
     // ---------- Navegação ----------
@@ -202,13 +220,16 @@ class ActionPanel extends Component
     public function render()
     {
         $character = $this->character();
+        $visible = $this->visibleFilter($character);
 
-        $assigned = $character->actions()->with('user')->orderBy('name')->get();
+        $assigned = $character->actions()->with('user')->orderBy('name')->get()
+            ->filter($visible)->values();
 
         $available = Action::whereIn('user_id', $this->poolUserIds($character))
             ->with('user')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter($visible)->values();
 
         $allTags = $available->flatMap(fn ($a) => $a->tags ?? [])->unique()->sort()->values();
 

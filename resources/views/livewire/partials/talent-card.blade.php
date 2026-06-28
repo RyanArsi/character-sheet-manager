@@ -69,6 +69,9 @@
                     @if($talent->media)
                         @include('livewire.partials.media-button', ['url' => $talentPayload['media'], 'volume' => $talentPayload['volume']])
                     @endif
+                    @if($talent->hidden)
+                        <span title="Oculto (só você e o mestre veem)" class="text-gray-500 text-[11px] flex-shrink-0">🚫</span>
+                    @endif
                 </div>
                 <div class="flex items-center gap-1.5 flex-shrink-0">
                     @if($talent->user_id === $authId)
