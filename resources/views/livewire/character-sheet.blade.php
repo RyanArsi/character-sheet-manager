@@ -44,6 +44,9 @@ function characterSheet(cid, campaigns) {
         // Aba ativa da coluna direita
         activeTab: 'equipamentos',
 
+        // Aba ativa da coluna esquerda (ficha | modos)
+        leftTab: 'ficha',
+
         // Rolador por notação (aba Dados)
         diceInput: '',
         diceError: '',
@@ -117,10 +120,17 @@ function characterSheet(cid, campaigns) {
             this.rollDice(s.name, attr + value + train);
         },
 
+        // Soma do modificador "Dados" de todos os modos ativos.
+        activeDiceMod() {
+            return (this.$wire.get('modes') || [])
+                .filter(m => m.active)
+                .reduce((s, m) => s + (parseInt(m.mod_dados) || 0), 0);
+        },
+
         rollDice(label, bonus) {
             this.playDiceSound();
             const die = Math.floor(Math.random() * 20) + 1;
-            bonus = parseInt(bonus) || 0;
+            bonus = (parseInt(bonus) || 0) + this.activeDiceMod();
             const total = die + bonus;
             const now = new Date();
             const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -520,7 +530,28 @@ function characterSheet(cid, campaigns) {
 >
 
     {{-- ===== COLUNA ESQUERDA (fixa, rolável internamente) ===== --}}
-    <aside class="w-72 flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-700 overflow-y-auto sidebar-scroll">
+    <aside class="w-72 flex-shrink-0 flex flex-col bg-gray-900 border-r border-gray-700 overflow-hidden">
+
+      {{-- Abas da coluna esquerda --}}
+      <div class="flex gap-0.5 px-2 pt-2 bg-gray-950/40 border-b border-gray-700 flex-shrink-0">
+        @foreach([['ficha', 'Ficha'], ['modos', 'Modos']] as [$ltab, $llabel])
+        <button type="button"
+            @click="leftTab = '{{ $ltab }}'"
+            dusk="left-tab-{{ $ltab }}"
+            :class="leftTab === '{{ $ltab }}'
+                ? 'bg-gray-900 text-amber-400 border-gray-700 border-b-gray-900'
+                : 'bg-gray-950/40 text-gray-500 hover:text-gray-300 border-transparent'"
+            class="px-3 py-1.5 text-[11px] font-medium rounded-t-lg border border-b-0 -mb-px transition-colors">
+            {{ $llabel }}
+        </button>
+        @endforeach
+      </div>
+
+      {{-- Conteúdo rolável --}}
+      <div class="flex-1 overflow-y-auto sidebar-scroll">
+
+        {{-- ===== ABA FICHA ===== --}}
+        <div x-show="leftTab === 'ficha'">
 
         {{-- Avatar + Nome --}}
         <div class="flex flex-col items-center gap-2 px-4 pt-5 pb-4 border-b border-gray-700">
@@ -841,6 +872,138 @@ function characterSheet(cid, campaigns) {
 
         {{-- Espaço no final para respiro ao rolar --}}
         <div class="h-4"></div>
+        </div>{{-- fim aba Ficha --}}
+
+        {{-- ===== ABA MODOS ===== --}}
+        <div x-show="leftTab === 'modos'" x-cloak class="p-4 space-y-3" dusk="panel-modos">
+            <button type="button" wire:click="addMode" dusk="add-mode"
+                class="w-full px-3 py-2 text-xs font-semibold rounded bg-amber-600 hover:bg-amber-500 text-white transition-colors">
+                + Novo modo
+            </button>
+
+            @php
+                $modLabels  = \App\Livewire\CharacterSheet::MODE_MODS;
+                $attrLabels = ['forca'=>'Força','agilidade'=>'Agilidade','constituicao'=>'Constituição','inteligencia'=>'Inteligência','sabedoria'=>'Sabedoria','carisma'=>'Carisma'];
+                $specLabels = ['ninjutsu'=>'Ninjutsu','genjutsu'=>'Genjutsu','taijutsu'=>'Taijutsu'];
+                $catLabels  = ['pericia'=>'Perícias','resistencia'=>'Resistências','combate'=>'Combate'];
+                $modeSkillGroups = ['pericia'=>[],'resistencia'=>[],'combate'=>[]];
+                foreach ($skills as $s) {
+                    $cat = $s['category'] ?? 'pericia';
+                    if (isset($modeSkillGroups[$cat])) $modeSkillGroups[$cat][] = $s;
+                }
+                $modInput = 'w-11 text-center bg-gray-800 border border-gray-700 rounded px-1 py-0.5 text-xs font-bold focus:border-amber-500 focus:ring-0 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed';
+                $modRow   = 'flex items-center justify-between gap-1 text-[10px] text-gray-400';
+                $modHead  = 'text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1';
+                // Verde para positivo, vermelho para negativo, branco para zero.
+                $modColor = fn ($v) => (int) $v > 0 ? 'text-green-400' : ((int) $v < 0 ? 'text-red-400' : 'text-white');
+            @endphp
+
+            @forelse($modes as $i => $mode)
+                <div x-data="{ editing: false }" @class([
+                    'rounded-lg border p-3',
+                    'border-amber-500 bg-amber-900/10' => $mode['active'],
+                    'border-gray-700 bg-gray-900'      => ! $mode['active'],
+                ]) dusk="mode-card-{{ $i }}">
+
+                    {{-- Título + excluir --}}
+                    <div class="flex items-center gap-2 mb-2">
+                        <input type="text" maxlength="60"
+                            wire:model.live="modes.{{ $i }}.title"
+                            placeholder="Nome do modo"
+                            class="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs font-semibold text-white focus:border-amber-500 focus:ring-0 focus:outline-none">
+                        <button type="button" wire:click="removeMode({{ $i }})"
+                            title="Excluir modo"
+                            class="text-gray-500 hover:text-red-400 text-sm flex-shrink-0 leading-none">✕</button>
+                    </div>
+
+                    {{-- Liga/desliga --}}
+                    <button type="button" wire:click="toggleMode({{ $i }})"
+                        dusk="toggle-mode-{{ $i }}"
+                        @class([
+                            'w-full px-2 py-1 text-[11px] font-bold rounded transition-colors',
+                            'bg-amber-600 hover:bg-amber-500 text-white'  => $mode['active'],
+                            'bg-gray-700 hover:bg-gray-600 text-gray-300' => ! $mode['active'],
+                        ])>
+                        {{ $mode['active'] ? '● Ativo — clique para desligar' : '○ Inativo — clique para ativar' }}
+                    </button>
+
+                    {{-- Abrir/fechar edição --}}
+                    <button type="button" @click="editing = !editing"
+                        dusk="edit-mode-{{ $i }}"
+                        class="w-full mt-2 px-2 py-1 text-[10px] font-medium rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 border border-gray-700 transition-colors">
+                        <span x-show="!editing">✎ Editar modificadores</span>
+                        <span x-show="editing" x-cloak>▴ Fechar edição</span>
+                    </button>
+
+                    {{-- Editor (gerais + individuais) --}}
+                    <div x-show="editing" x-cloak class="mt-3 space-y-3">
+                        @if($mode['active'])
+                            <p class="text-[9px] text-amber-400/70">Desative o modo para editar os valores.</p>
+                        @endif
+
+                        {{-- Gerais (por categoria) --}}
+                        <div>
+                            <p class="{{ $modHead }}">Gerais</p>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                                @foreach($modLabels as $col => $label)
+                                <label class="{{ $modRow }}">
+                                    <span class="truncate">{{ $label }}</span>
+                                    <input type="number" wire:model.live="modes.{{ $i }}.{{ $col }}" @disabled($mode['active']) class="{{ $modInput }} {{ $modColor($mode[$col] ?? 0) }}">
+                                </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        {{-- Atributos individuais --}}
+                        <div>
+                            <p class="{{ $modHead }}">Atributos (individual)</p>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                                @foreach($attrLabels as $key => $label)
+                                <label class="{{ $modRow }}">
+                                    <span class="truncate">{{ $label }}</span>
+                                    <input type="number" wire:model.live="modes.{{ $i }}.individual.attrs.{{ $key }}" @disabled($mode['active']) class="{{ $modInput }} {{ $modColor($mode['individual']['attrs'][$key] ?? 0) }}">
+                                </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        {{-- Especializações individuais --}}
+                        <div>
+                            <p class="{{ $modHead }}">Especializações (individual)</p>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-1">
+                                @foreach($specLabels as $key => $label)
+                                <label class="{{ $modRow }}">
+                                    <span class="truncate">{{ $label }}</span>
+                                    <input type="number" wire:model.live="modes.{{ $i }}.individual.spec.{{ $key }}" @disabled($mode['active']) class="{{ $modInput }} {{ $modColor($mode['individual']['spec'][$key] ?? 0) }}">
+                                </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        {{-- Perícias / Resistências / Combate individuais --}}
+                        @foreach($modeSkillGroups as $cat => $groupSkills)
+                            @if(count($groupSkills))
+                            <div>
+                                <p class="{{ $modHead }}">{{ $catLabels[$cat] }} (individual)</p>
+                                <div class="space-y-1">
+                                    @foreach($groupSkills as $gs)
+                                    <label class="{{ $modRow }}">
+                                        <span class="truncate">{{ $gs['name'] }}</span>
+                                        <input type="number" wire:model.live="modes.{{ $i }}.individual.skills.{{ $gs['id'] }}" @disabled($mode['active']) class="{{ $modInput }} {{ $modColor($mode['individual']['skills'][$gs['id']] ?? 0) }}">
+                                    </label>
+                                    @endforeach
+                                </div>
+                            </div>
+                            @endif
+                        @endforeach
+                    </div>
+                </div>
+            @empty
+                <p class="text-xs text-gray-600 text-center py-6">Nenhum modo ainda.<br>Crie um com “+ Novo modo”.</p>
+            @endforelse
+        </div>
+
+      </div>{{-- fim conteúdo rolável da coluna esquerda --}}
     </aside>
 
     {{-- ===== COLUNA DO MEIO (controle de turnos, condições, etc) ===== --}}

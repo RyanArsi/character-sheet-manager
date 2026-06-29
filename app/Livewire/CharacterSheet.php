@@ -8,6 +8,7 @@ use App\Events\CampaignInitiativeUpdated;
 use App\Models\Campaign;
 use App\Models\CampaignEvent;
 use App\Models\Character;
+use App\Models\CharacterMode;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -65,6 +66,9 @@ class CharacterSheet extends Component
 
     public array $skills = [];
 
+    /** Modos (conjuntos de modificadores ativáveis). */
+    public array $modes = [];
+
     public $newAvatar;
     public ?string $avatarPath = null;
 
@@ -118,6 +122,73 @@ class CharacterSheet extends Component
                 'training_level' => $s->training_level,
             ])
             ->toArray();
+
+        $this->modes = $character->modes()->orderBy('id')->get()
+            ->map(fn ($m) => $this->mapMode($m))
+            ->toArray();
+    }
+
+    /** Campos de modificador de um modo (coluna => rótulo). */
+    public const MODE_MODS = [
+        'mod_dados'          => 'Dados',
+        'mod_pericias'       => 'Perícias',
+        'mod_especializacao' => 'Especialização',
+        'mod_atributos'      => 'Atributos',
+        'mod_chakra_atual'   => 'Chakra atual',
+        'mod_chakra_max'     => 'Chakra máx',
+        'mod_vida_atual'     => 'Vida atual',
+        'mod_vida_max'       => 'Vida máx',
+        'mod_ca'             => 'CA',
+        'mod_resistencias'   => 'Resistências',
+        'mod_combate'        => 'Combate',
+    ];
+
+    public const MODE_ATTRS = ['forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma'];
+    public const MODE_SPEC  = ['ninjutsu', 'genjutsu', 'taijutsu'];
+
+    /** Esqueleto dos modificadores individuais (tudo zerado) com base nas perícias atuais. */
+    protected function blankIndividual(): array
+    {
+        $skills = [];
+        foreach ($this->skills as $s) {
+            $skills[$s['id']] = 0;
+        }
+
+        return [
+            'attrs'  => array_fill_keys(self::MODE_ATTRS, 0),
+            'spec'   => array_fill_keys(self::MODE_SPEC, 0),
+            'skills' => $skills,
+        ];
+    }
+
+    /** Converte um CharacterMode no array usado pelo componente. */
+    protected function mapMode(CharacterMode $m): array
+    {
+        $data = [
+            'id'     => $m->id,
+            'title'  => $m->title,
+            'active' => (bool) $m->active,
+        ];
+        foreach (array_keys(self::MODE_MODS) as $col) {
+            $data[$col] = (int) $m->{$col};
+        }
+
+        // Individuais: parte do esqueleto e sobrepõe o que está salvo.
+        $skeleton = $this->blankIndividual();
+        $stored   = $m->individual ?? [];
+
+        $data['individual'] = [
+            'attrs'  => array_merge($skeleton['attrs'], array_map('intval', $stored['attrs'] ?? [])),
+            'spec'   => array_merge($skeleton['spec'], array_map('intval', $stored['spec'] ?? [])),
+            'skills' => $skeleton['skills'],
+        ];
+        foreach (($stored['skills'] ?? []) as $sid => $v) {
+            if (array_key_exists($sid, $data['individual']['skills'])) {
+                $data['individual']['skills'][$sid] = (int) $v;
+            }
+        }
+
+        return $data;
     }
 
     // Chamado pelo Alpine após cada round-trip — normaliza campos numéricos vazios
@@ -150,6 +221,16 @@ class CharacterSheet extends Component
                 $this->skills[$i]['value'] = is_numeric($v) ? (int) $v : 0;
             }
         }
+
+        // Modificador de um modo (modes.N.mod_*)
+        if ($property !== null && preg_match('/^modes\.(\d+)\.(mod_\w+)$/', $property, $m)) {
+            $i = (int) $m[1];
+            $col = $m[2];
+            if (isset($this->modes[$i][$col])) {
+                $v = $this->modes[$i][$col];
+                $this->modes[$i][$col] = is_numeric($v) ? (int) $v : 0;
+            }
+        }
     }
 
     // Restaura estado vindo do localStorage (chamado pelo Alpine no init)
@@ -175,6 +256,25 @@ class CharacterSheet extends Component
                         $this->skills[$i]['value']          = $incoming['value'];
                         $this->skills[$i]['trained']        = $incoming['trained'];
                         $this->skills[$i]['training_level'] = $incoming['training_level'] ?? 0;
+                        $this->skills[$i]['attribute']      = $incoming['attribute'] ?? $skill['attribute'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (! empty($data['modes'])) {
+            foreach ($data['modes'] as $incoming) {
+                foreach ($this->modes as $i => $mode) {
+                    if ($mode['id'] === ($incoming['id'] ?? null)) {
+                        $this->modes[$i]['title']  = $incoming['title'] ?? $mode['title'];
+                        $this->modes[$i]['active'] = (bool) ($incoming['active'] ?? $mode['active']);
+                        foreach (array_keys(self::MODE_MODS) as $col) {
+                            $this->modes[$i][$col] = (int) ($incoming[$col] ?? $mode[$col]);
+                        }
+                        if (isset($incoming['individual'])) {
+                            $this->modes[$i]['individual'] = $incoming['individual'];
+                        }
                         break;
                     }
                 }
@@ -213,7 +313,13 @@ class CharacterSheet extends Component
     public function save(): void
     {
         $this->validate();
+        $this->persist();
+        $this->dispatch('saved');
+    }
 
+    /** Grava ficha + perícias + modos no banco (sem validação/feedback). */
+    protected function persist(): void
+    {
         $character = Character::find($this->characterId);
 
         $character->update([
@@ -249,7 +355,100 @@ class CharacterSheet extends Component
                 ]);
         }
 
-        $this->dispatch('saved');
+        foreach ($this->modes as $mode) {
+            $data = [
+                'title'  => $mode['title'] ?? 'Modo',
+                'active' => (bool) ($mode['active'] ?? false),
+            ];
+            foreach (array_keys(self::MODE_MODS) as $col) {
+                $data[$col] = (int) ($mode[$col] ?? 0);
+            }
+            $ind = $mode['individual'] ?? [];
+            $data['individual'] = [
+                'attrs'  => array_map('intval', $ind['attrs'] ?? []),
+                'spec'   => array_map('intval', $ind['spec'] ?? []),
+                'skills' => array_map('intval', $ind['skills'] ?? []),
+            ];
+            $character->modes()->where('id', $mode['id'])->update($data);
+        }
+    }
+
+    // ---------- Modos ----------
+    public function addMode(): void
+    {
+        $character = Character::find($this->characterId);
+        $mode = $character->modes()->create(['title' => 'Novo modo']);
+        $this->modes[] = $this->mapMode($mode);
+    }
+
+    public function removeMode(int $index): void
+    {
+        if (! isset($this->modes[$index])) {
+            return;
+        }
+
+        $mode = $this->modes[$index];
+
+        // Se estiver ativo, reverte os modificadores antes de excluir.
+        if (! empty($mode['active'])) {
+            $this->applyModeDeltas($mode, -1);
+        }
+
+        Character::find($this->characterId)->modes()->where('id', $mode['id'])->delete();
+        array_splice($this->modes, $index, 1);
+
+        $this->persist();
+    }
+
+    /** Liga/desliga um modo: aplica (+1) ou reverte (-1) os modificadores. */
+    public function toggleMode(int $index): void
+    {
+        if (! isset($this->modes[$index])) {
+            return;
+        }
+
+        $wasActive = ! empty($this->modes[$index]['active']);
+        $this->applyModeDeltas($this->modes[$index], $wasActive ? -1 : 1);
+        $this->modes[$index]['active'] = ! $wasActive;
+
+        $this->persist();
+    }
+
+    /** Soma (sign=+1) ou subtrai (sign=-1) os modificadores de um modo nas stats da ficha. */
+    protected function applyModeDeltas(array $mode, int $sign): void
+    {
+        $d   = fn (string $col) => (int) ($mode[$col] ?? 0) * $sign;
+        $ind = $mode['individual'] ?? [];
+        $ia  = fn (string $k) => (int) ($ind['attrs'][$k] ?? 0) * $sign;
+        $is  = fn (string $k) => (int) ($ind['spec'][$k] ?? 0) * $sign;
+        $ik  = fn ($id) => (int) ($ind['skills'][$id] ?? 0) * $sign;
+
+        foreach (self::MODE_ATTRS as $a) {
+            $this->{$a} = (int) $this->{$a} + $d('mod_atributos') + $ia($a);
+        }
+        foreach (self::MODE_SPEC as $a) {
+            $this->{$a} = (int) $this->{$a} + $d('mod_especializacao') + $is($a);
+        }
+
+        $this->chakra_current = (int) $this->chakra_current + $d('mod_chakra_atual');
+        $this->chakra_max     = (int) $this->chakra_max + $d('mod_chakra_max');
+        $this->hp_current     = (int) $this->hp_current + $d('mod_vida_atual');
+        $this->hp_max         = (int) $this->hp_max + $d('mod_vida_max');
+        $this->defense        = (int) $this->defense + $d('mod_ca');
+
+        foreach ($this->skills as $i => $s) {
+            $general = match ($s['category'] ?? 'pericia') {
+                'resistencia' => $d('mod_resistencias'),
+                'combate'     => $d('mod_combate'),
+                default       => $d('mod_pericias'),
+            };
+            $delta = $general + $ik($s['id']);
+            if ($delta !== 0) {
+                $this->skills[$i]['value'] = (int) $s['value'] + $delta;
+            }
+        }
+
+        // 'mod_dados' não tem campo base — é somado na rolagem (front).
     }
 
     public function adjustAttr(string $field, int $delta): void
@@ -334,6 +533,7 @@ class CharacterSheet extends Component
             'genjutsu'       => $this->genjutsu,
             'taijutsu'       => $this->taijutsu,
             'skills'         => $this->skills,
+            'modes'          => $this->modes,
         ];
     }
 

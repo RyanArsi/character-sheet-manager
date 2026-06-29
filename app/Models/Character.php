@@ -53,6 +53,12 @@ class Character extends Model
         return $this->hasMany(CharacterSkill::class);
     }
 
+    /** Modos (conjuntos de modificadores ativáveis) desta ficha. */
+    public function modes(): HasMany
+    {
+        return $this->hasMany(CharacterMode::class);
+    }
+
     /** Notas livres desta ficha (aba Notas). Nome evita conflito com a coluna `notes`. */
     public function noteEntries(): HasMany
     {

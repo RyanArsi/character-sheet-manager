@@ -409,6 +409,229 @@ class CharacterSheetTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // Modos (modificadores ativáveis)
+    // -------------------------------------------------------------------------
+
+    public function test_modo_aplica_e_reverte_modificadores(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->set('forca', 10)->set('defense', 5)->set('hp_max', 20);
+
+        $component->call('addMode')
+            ->set('modes.0.mod_atributos', 3)
+            ->set('modes.0.mod_ca', -2)     // modificador negativo
+            ->set('modes.0.mod_vida_max', 5);
+
+        // Ativar aplica
+        $component->call('toggleMode', 0);
+        $this->assertTrue($component->get('modes.0.active'));
+        $this->assertSame(13, $component->get('forca'));
+        $this->assertSame(3, $component->get('defense'));
+        $this->assertSame(25, $component->get('hp_max'));
+
+        // Persistiu o estado ativo
+        $this->assertDatabaseHas('character_modes', [
+            'character_id' => $character->id,
+            'active'       => true,
+            'mod_atributos' => 3,
+        ]);
+
+        // Desativar reverte exatamente
+        $component->call('toggleMode', 0);
+        $this->assertFalse($component->get('modes.0.active'));
+        $this->assertSame(10, $component->get('forca'));
+        $this->assertSame(5, $component->get('defense'));
+        $this->assertSame(20, $component->get('hp_max'));
+    }
+
+    public function test_multiplos_modos_acumulam_nas_pericias(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        // Índice de uma perícia (categoria 'pericia')
+        $skills = $component->get('skills');
+        $p = collect($skills)->search(fn ($s) => ($s['category'] ?? 'pericia') === 'pericia');
+        $component->set("skills.$p.value", 0);
+
+        $component->call('addMode')->set('modes.0.mod_pericias', 2);
+        $component->call('addMode')->set('modes.1.mod_pericias', -1);
+
+        $component->call('toggleMode', 0)->call('toggleMode', 1);
+        $this->assertSame(1, $component->get("skills.$p.value")); // 0 + 2 - 1
+
+        // Desligar um remove só a parte dele
+        $component->call('toggleMode', 0);
+        $this->assertSame(-1, $component->get("skills.$p.value"));
+    }
+
+    public function test_excluir_modo_ativo_reverte_antes(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->set('chakra_max', 30);
+
+        $component->call('addMode')->set('modes.0.mod_chakra_max', 10)->call('toggleMode', 0);
+        $this->assertSame(40, $component->get('chakra_max'));
+
+        $component->call('removeMode', 0);
+        $this->assertSame(30, $component->get('chakra_max'));
+        $this->assertCount(0, $component->get('modes'));
+    }
+
+    /** Captura todas as stats da ficha (atributos, especializações, barras, CA e perícias). */
+    private function sheetSnapshot($component): array
+    {
+        $snap = [];
+        foreach (['forca', 'agilidade', 'constituicao', 'inteligencia', 'sabedoria', 'carisma',
+                  'ninjutsu', 'genjutsu', 'taijutsu', 'hp_current', 'hp_max',
+                  'chakra_current', 'chakra_max', 'defense'] as $f) {
+            $snap[$f] = $component->get($f);
+        }
+        foreach ($component->get('skills') as $s) {
+            $snap['skill_'.$s['id']] = $s['value'];
+        }
+
+        return $snap;
+    }
+
+    public function test_modo_so_de_dados_nao_altera_nenhuma_stat(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        $before = $this->sheetSnapshot($component);
+
+        $component->call('addMode')->set('modes.0.mod_dados', 5);
+
+        $component->call('toggleMode', 0);
+        $this->assertTrue($component->get('modes.0.active'));
+        // 'Dados' é bônus de rolagem — não pode mexer em nenhum valor da ficha.
+        $this->assertSame($before, $this->sheetSnapshot($component));
+
+        $component->call('toggleMode', 0);
+        $this->assertSame($before, $this->sheetSnapshot($component));
+    }
+
+    public function test_modos_complexos_nunca_alteram_a_ficha_permanentemente(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        $before = $this->sheetSnapshot($component);
+
+        $skills = $component->get('skills');
+        $skillId = $skills[0]['id'];
+
+        // Modo 1: todas as categorias, gerais + individuais, sinais misturados.
+        $component->call('addMode')
+            ->set('modes.0.mod_atributos', 3)
+            ->set('modes.0.mod_especializacao', -2)
+            ->set('modes.0.mod_pericias', 1)
+            ->set('modes.0.mod_resistencias', -1)
+            ->set('modes.0.mod_combate', 2)
+            ->set('modes.0.mod_ca', -4)
+            ->set('modes.0.mod_vida_atual', 5)
+            ->set('modes.0.mod_vida_max', -3)
+            ->set('modes.0.mod_chakra_atual', -6)
+            ->set('modes.0.mod_chakra_max', 7)
+            ->set('modes.0.mod_dados', 2)
+            ->set('modes.0.individual.attrs.forca', -5)
+            ->set('modes.0.individual.spec.ninjutsu', 4)
+            ->set("modes.0.individual.skills.$skillId", -3);
+
+        // Modo 2: simples, sobrepondo no mesmo atributo.
+        $component->call('addMode')
+            ->set('modes.1.mod_atributos', -1)
+            ->set('modes.1.individual.attrs.forca', 10);
+
+        // Liga os dois → algo tem que mudar.
+        $component->call('toggleMode', 0)->call('toggleMode', 1);
+        $this->assertNotSame($before, $this->sheetSnapshot($component));
+
+        // Desliga em ORDEM INVERSA → volta exatamente ao original.
+        $component->call('toggleMode', 1)->call('toggleMode', 0);
+        $this->assertSame($before, $this->sheetSnapshot($component));
+
+        // Liga de novo e desliga na MESMA ordem → também volta ao original.
+        $component->call('toggleMode', 0)->call('toggleMode', 1);
+        $component->call('toggleMode', 0)->call('toggleMode', 1);
+        $this->assertSame($before, $this->sheetSnapshot($component));
+
+        // Persiste com modos desligados e recarrega: ficha continua original.
+        $component->call('save')->assertHasNoErrors();
+        $fresh = Livewire::actingAs($user)->test(CharacterSheet::class, ['character' => $character]);
+        $this->assertSame($before, $this->sheetSnapshot($fresh));
+    }
+
+    public function test_excluir_modo_ativo_nao_deixa_residuo_na_ficha(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character]);
+
+        $before = $this->sheetSnapshot($component);
+
+        $component->call('addMode')
+            ->set('modes.0.mod_atributos', 4)
+            ->set('modes.0.individual.attrs.forca', 9)
+            ->call('toggleMode', 0);
+
+        $this->assertNotSame($before, $this->sheetSnapshot($component));
+
+        // Excluir um modo ATIVO deve reverter antes de remover.
+        $component->call('removeMode', 0);
+        $this->assertSame($before, $this->sheetSnapshot($component));
+    }
+
+    public function test_modo_aplica_modificadores_individuais_alem_dos_gerais(): void
+    {
+        [$user, $character] = $this->userWithCharacter();
+
+        $component = Livewire::actingAs($user)
+            ->test(CharacterSheet::class, ['character' => $character])
+            ->set('forca', 10)->set('agilidade', 10);
+
+        $skills = $component->get('skills');
+        $sid = $skills[0]['id']; // primeira perícia (categoria 'pericia')
+        $component->set('skills.0.value', 0);
+
+        $component->call('addMode')
+            ->set('modes.0.mod_atributos', 1)               // geral em todos os atributos
+            ->set('modes.0.individual.attrs.forca', 2)       // individual só na força
+            ->set("modes.0.individual.skills.$sid", 4);      // individual nessa perícia
+
+        $component->call('toggleMode', 0);
+        $this->assertSame(13, $component->get('forca'));      // 10 + 1 geral + 2 individual
+        $this->assertSame(11, $component->get('agilidade'));  // 10 + 1 geral
+        $this->assertSame(4, $component->get('skills.0.value')); // 0 + 4 individual
+
+        // Reverte tudo ao desligar
+        $component->call('toggleMode', 0);
+        $this->assertSame(10, $component->get('forca'));
+        $this->assertSame(10, $component->get('agilidade'));
+        $this->assertSame(0, $component->get('skills.0.value'));
+
+        // Persiste os individuais
+        $component->call('save')->assertHasNoErrors();
+        $mode = \App\Models\CharacterMode::where('character_id', $character->id)->first();
+        $this->assertSame(2, $mode->individual['attrs']['forca']);
+        $this->assertSame(4, (int) ($mode->individual['skills'][$sid] ?? 0));
+    }
+
+    // -------------------------------------------------------------------------
     // Mídia compartilhada com a campanha (broadcast de reprodução)
     // -------------------------------------------------------------------------
 
