@@ -45,6 +45,7 @@ class EquipmentPanel extends Component
     // ---- Formulário (criador/editor) ----
     public ?int $editingId = null;
     public string $name = '';
+    public string $rank = '';
     public string $tagsInput = '';
     public string $test_dice = '';
     public string $damage_dice = '';
@@ -131,6 +132,7 @@ class EquipmentPanel extends Component
 
         $this->editingId   = $equipment->id;
         $this->name        = $equipment->name;
+        $this->rank        = $equipment->rank ?? '';
         $this->tagsInput   = implode(', ', $equipment->tags ?? []);
         $this->test_dice   = $equipment->test_dice ?? '';
         $this->damage_dice = $equipment->damage_dice ?? '';
@@ -154,7 +156,7 @@ class EquipmentPanel extends Component
     public function resetForm(): void
     {
         $this->reset([
-            'editingId', 'name', 'tagsInput', 'test_dice', 'damage_dice', 'space',
+            'editingId', 'name', 'rank', 'tagsInput', 'test_dice', 'damage_dice', 'space',
             'description', 'infos', 'image', 'imagePath', 'media', 'mediaPath', 'volume',
         ]);
     }
@@ -164,6 +166,7 @@ class EquipmentPanel extends Component
     {
         $this->validate([
             'name'        => 'required|string|max:120',
+            'rank'        => 'nullable|string|max:60',
             'tagsInput'   => 'nullable|string|max:255',
             'test_dice'   => 'nullable|string|max:120',
             'damage_dice' => 'nullable|string|max:120',
@@ -175,20 +178,11 @@ class EquipmentPanel extends Component
             'volume'      => 'integer|min:0|max:100',
         ]);
 
-        $tags = collect(explode(',', $this->tagsInput))
-            ->map(fn ($t) => trim(str_replace(['"', "'"], '', $t)))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        // Garante que cada tag exista no dicionário (descrição preenchida depois)
-        foreach ($tags as $t) {
-            Tag::firstOrCreate(['name' => $t]);
-        }
+        $tags = Tag::canonicalList(explode(',', $this->tagsInput));
 
         $data = [
             'name'        => $this->name,
+            'rank'        => $this->rank ?: null,
             'tags'        => $tags,
             'test_dice'   => $this->test_dice ?: null,
             'damage_dice' => $this->damage_dice ?: null,
@@ -267,7 +261,11 @@ class EquipmentPanel extends Component
     // ---------- Significado da tag ----------
     public function openTag(string $name): void
     {
-        $tag = Tag::firstOrCreate(['name' => $name]);
+        $canonical = Tag::canonicalName($name);
+        if ($canonical === null) {
+            return;
+        }
+        $tag = Tag::firstOrCreate(['name' => $canonical]);
 
         $this->tagName        = $tag->name;
         $this->tagDescription = $tag->description ?? '';
@@ -322,6 +320,7 @@ class EquipmentPanel extends Component
             'exported_at' => now()->toIso8601String(),
             'equipments' => $equipments->map(fn ($e) => [
                 'name'        => $e->name,
+                'rank'        => $e->rank,
                 'tags'        => $e->tags ?? [],
                 'test_dice'   => $e->test_dice,
                 'damage_dice' => $e->damage_dice,
@@ -360,11 +359,12 @@ class EquipmentPanel extends Component
 
         // Traz o dicionário de tags (preenche descrição só se ainda estiver vazia)
         foreach (($data['tags'] ?? []) as $t) {
-            if (empty($t['name'])) {
+            $name = Tag::canonicalName((string) ($t['name'] ?? ''));
+            if ($name === null) {
                 continue;
             }
-            $tag = Tag::firstOrCreate(['name' => $t['name']]);
-            if (empty($tag->description) && ! empty($t['description'])) {
+            $tag = Tag::where('name', $name)->first();
+            if ($tag && empty($tag->description) && ! empty($t['description'])) {
                 $tag->update(['description' => $t['description']]);
             }
         }
@@ -378,16 +378,11 @@ class EquipmentPanel extends Component
                 continue;
             }
 
-            $tags = collect((array) ($e['tags'] ?? []))
-                ->map(fn ($x) => trim(str_replace(['"', "'"], '', (string) $x)))
-                ->filter()->unique()->values()->all();
-
-            foreach ($tags as $x) {
-                Tag::firstOrCreate(['name' => $x]);
-            }
+            $tags = Tag::canonicalList((array) ($e['tags'] ?? []));
 
             auth()->user()->equipments()->create([
                 'name'        => mb_substr((string) $e['name'], 0, 120),
+                'rank'        => $e['rank'] ?? null,
                 'tags'        => $tags,
                 'test_dice'   => $e['test_dice'] ?? null,
                 'damage_dice' => $e['damage_dice'] ?? null,

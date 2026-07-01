@@ -183,6 +183,14 @@
                 @error('name') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
             </div>
 
+            {{-- Rank/Nível --}}
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Rank/Nível</label>
+                <input type="text" wire:model="rank" dusk="talent-rank"
+                    class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:border-amber-500 focus:ring-0 focus:outline-none">
+                @error('rank') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
+            </div>
+
             {{-- Tags --}}
             <div>
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Tags <span class="text-gray-600 normal-case">(separadas por vírgula)</span></label>

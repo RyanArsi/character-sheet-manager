@@ -122,13 +122,7 @@ class ActionPanel extends Component
             'description' => 'nullable|string|max:5000',
         ]);
 
-        $tags = collect(explode(',', $this->tagsInput))
-            ->map(fn ($t) => trim(str_replace(['"', "'"], '', $t)))
-            ->filter()->unique()->values()->all();
-
-        foreach ($tags as $t) {
-            Tag::firstOrCreate(['name' => $t]);
-        }
+        $tags = Tag::canonicalList(explode(',', $this->tagsInput));
 
         $data = [
             'name'        => $this->name,
@@ -184,7 +178,11 @@ class ActionPanel extends Component
     // ---------- Significado da tag ----------
     public function openTag(string $name): void
     {
-        $tag = Tag::firstOrCreate(['name' => $name]);
+        $canonical = Tag::canonicalName($name);
+        if ($canonical === null) {
+            return;
+        }
+        $tag = Tag::firstOrCreate(['name' => $canonical]);
 
         $this->tagName        = $tag->name;
         $this->tagDescription = $tag->description ?? '';

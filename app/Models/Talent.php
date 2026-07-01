@@ -16,7 +16,7 @@ class Talent extends Model
     protected $table = 'talents';
 
     protected $fillable = [
-        'user_id', 'name', 'image', 'media', 'volume', 'tags',
+        'user_id', 'name', 'rank', 'image', 'media', 'volume', 'tags',
         'chakra_cost', 'test_dice', 'damage_dice', 'actions', 'area_range', 'target', 'description', 'infos', 'hidden',
     ];
 

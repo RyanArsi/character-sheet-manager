@@ -27,6 +27,7 @@ class CampaignLibrary extends Component
     public ?string $formType = null;   // jutsus | talents | equipments | actions (null = fechado)
     public ?int $formEditingId = null;
     public string $fName = '';
+    public string $fRank = '';
     public string $fTags = '';
     public string $fChakra = '';
     public string $fTest = '';
@@ -127,6 +128,7 @@ class CampaignLibrary extends Component
         $this->formType      = $type;
         $this->formEditingId = $item->id;
         $this->fName         = $item->name;
+        $this->fRank         = $item->rank ?? '';
         $this->fTags         = implode(', ', $item->tags ?? []);
         $this->fChakra       = $item->chakra_cost ?? '';
         $this->fTest         = $item->test_dice ?? '';
@@ -143,7 +145,7 @@ class CampaignLibrary extends Component
     public function cancelForm(): void
     {
         $this->reset([
-            'formType', 'formEditingId', 'fName', 'fTags', 'fChakra', 'fTest', 'fDamage',
+            'formType', 'formEditingId', 'fName', 'fRank', 'fTags', 'fChakra', 'fTest', 'fDamage',
             'fActions', 'fArea', 'fTarget', 'fSpace', 'fDescription', 'fInfos',
         ]);
     }
@@ -158,6 +160,7 @@ class CampaignLibrary extends Component
 
         $this->validate([
             'fName'        => 'required|string|max:120',
+            'fRank'        => 'nullable|string|max:60',
             'fTags'        => 'nullable|string|max:255',
             'fChakra'      => 'nullable|string|max:60',
             'fTest'        => 'nullable|string|max:120',
@@ -170,13 +173,7 @@ class CampaignLibrary extends Component
             'fInfos'       => 'nullable|string|max:5000',
         ]);
 
-        $tags = collect(explode(',', $this->fTags))
-            ->map(fn ($t) => trim(str_replace(['"', "'"], '', $t)))
-            ->filter()->unique()->values()->all();
-
-        foreach ($tags as $t) {
-            Tag::firstOrCreate(['name' => $t]);
-        }
+        $tags = Tag::canonicalList(explode(',', $this->fTags));
 
         // Campos comuns a todos os tipos
         $data = [
@@ -188,6 +185,11 @@ class CampaignLibrary extends Component
         ];
 
         // Campos específicos por tipo (espelham os da ficha)
+        // Rank/Nível existe em jutsus, talentos e equipamentos (ações não têm).
+        if ($type !== 'actions') {
+            $data['rank'] = $this->fRank ?: null;
+        }
+
         if ($type === 'jutsus' || $type === 'talents') {
             $data += [
                 'chakra_cost' => $this->fChakra ?: null,
@@ -234,6 +236,7 @@ class CampaignLibrary extends Component
         };
 
         if ($type === 'jutsus' || $type === 'talents') {
+            $add('Rank', $item->rank);
             $add('Chakra', $item->chakra_cost);
             $add('Teste', $item->test_dice);
             $add('Dano', $item->damage_dice);
@@ -241,6 +244,7 @@ class CampaignLibrary extends Component
             $add('Área/alc.', $item->area_range);
             $add('Alvo', $item->target);
         } elseif ($type === 'equipments') {
+            $add('Rank', $item->rank);
             $add('Teste', $item->test_dice);
             $add('Dano', $item->damage_dice);
             $add('Espaço', $item->space);
@@ -256,6 +260,7 @@ class CampaignLibrary extends Component
             'tags'        => $item->tags ?? [],
             'fields'      => $fields,
             'description' => $item->description ?? null,
+            'infos'       => $item->infos ?? null,
             'hidden'      => (bool) $item->hidden,
             'user_id'     => $item->user_id,
             'creator'     => $item->user->name ?? '—',
@@ -292,12 +297,15 @@ class CampaignLibrary extends Component
         }
         $counts['all'] = array_sum($counts);
 
-        // Tags disponíveis no conjunto atual (antes do filtro por tag)
-        $allTags = $normalized->flatMap(fn ($x) => $x['tags'])->unique()->sort()->values();
+        // Tags disponíveis no conjunto atual (antes do filtro por tag), em ordem
+        // alfabética case-insensitive.
+        $allTags = $normalized->flatMap(fn ($x) => $x['tags'])->unique()
+            ->sortBy(fn ($t) => \Illuminate\Support\Str::lower($t))->values();
 
+        // Filtro por tag é "OU": basta conter qualquer uma das tags selecionadas.
         if ($this->activeFilters) {
             $normalized = $normalized->filter(
-                fn ($x) => count(array_intersect($this->activeFilters, $x['tags'])) === count($this->activeFilters)
+                fn ($x) => count(array_intersect($this->activeFilters, $x['tags'])) > 0
             );
         }
 

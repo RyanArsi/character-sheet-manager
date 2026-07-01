@@ -49,7 +49,7 @@ class ActionPanelTest extends TestCase
 
         $this->assertNotNull($action);
         $this->assertSame($user->id, $action->user_id);
-        $this->assertSame(['social', 'sigilo'], $action->tags);
+        $this->assertSame(['Social', 'Sigilo'], $action->tags);
         $this->assertTrue($character->actions()->whereKey($action->id)->exists());
     }
 

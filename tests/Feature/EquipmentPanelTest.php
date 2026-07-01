@@ -54,7 +54,7 @@ class EquipmentPanelTest extends TestCase
         $this->assertNotNull($equipment);
         $this->assertSame($user->id, $equipment->user_id);
         $this->assertSame(3, $equipment->space);
-        $this->assertSame(['arma', 'lâmina'], $equipment->tags);
+        $this->assertSame(['Arma', 'Lâmina'], $equipment->tags);
 
         // Atribuído à ficha, no local padrão "mochila"
         $pivot = $character->equipments()->where('equipments.id', $equipment->id)->first();
@@ -275,7 +275,7 @@ class EquipmentPanelTest extends TestCase
 
         $this->assertDatabaseHas('equipments', ['user_id' => $user->id, 'name' => 'Katana', 'space' => 3]);
         $this->assertDatabaseHas('equipments', ['user_id' => $user->id, 'name' => 'Cantil']);
-        $this->assertDatabaseHas('tags', ['name' => 'arma', 'description' => 'Itens ofensivos.']);
+        $this->assertDatabaseHas('tags', ['name' => 'Arma', 'description' => 'Itens ofensivos.']);
     }
 
     public function test_import_nao_duplica_equipamento_existente(): void

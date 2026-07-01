@@ -54,7 +54,7 @@ class JutsuPanelTest extends TestCase
 
         $this->assertNotNull($jutsu);
         $this->assertSame($user->id, $jutsu->user_id);
-        $this->assertSame(['vento', 'ofensivo'], $jutsu->tags);
+        $this->assertSame(['Vento', 'Ofensivo'], $jutsu->tags);
         $this->assertTrue($character->jutsus()->where('jutsus.id', $jutsu->id)->exists());
     }
 
@@ -156,8 +156,8 @@ class JutsuPanelTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        $this->assertDatabaseHas('tags', ['name' => 'fogo']);
-        $this->assertDatabaseHas('tags', ['name' => 'ofensivo']);
+        $this->assertDatabaseHas('tags', ['name' => 'Fogo']);
+        $this->assertDatabaseHas('tags', ['name' => 'Ofensivo']);
     }
 
     public function test_criar_jutsu_salva_dados_dano_e_volume(): void
@@ -230,7 +230,7 @@ class JutsuPanelTest extends TestCase
 
         Livewire::test(JutsuPanel::class, ['characterId' => $character->id])
             ->call('openTag', 'fogo')
-            ->assertSet('tagName', 'fogo')
+            ->assertSet('tagName', 'Fogo')
             ->assertSet('editingTag', false)
             ->call('editTag')
             ->assertSet('editingTag', true)
@@ -239,7 +239,7 @@ class JutsuPanelTest extends TestCase
             ->assertSet('editingTag', false);
 
         $this->assertDatabaseHas('tags', [
-            'name'        => 'fogo',
+            'name'        => 'Fogo',
             'description' => 'Jutsus de elemento fogo.',
         ]);
     }
@@ -280,7 +280,7 @@ class JutsuPanelTest extends TestCase
 
         $this->assertDatabaseHas('jutsus', ['user_id' => $user->id, 'name' => 'Chidori']);
         $this->assertDatabaseHas('jutsus', ['user_id' => $user->id, 'name' => 'Kage Bunshin']);
-        $this->assertDatabaseHas('tags', ['name' => 'raio', 'description' => 'Elemento relâmpago.']);
+        $this->assertDatabaseHas('tags', ['name' => 'Raio', 'description' => 'Elemento relâmpago.']);
     }
 
     public function test_import_nao_duplica_jutsu_existente(): void

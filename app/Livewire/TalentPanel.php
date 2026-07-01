@@ -37,6 +37,7 @@ class TalentPanel extends Component
     // ---- Formulário (criador/editor) ----
     public ?int $editingId = null;
     public string $name = '';
+    public string $rank = '';
     public string $tagsInput = '';
     public string $chakra_cost = '';
     public string $test_dice = '';
@@ -111,6 +112,7 @@ class TalentPanel extends Component
 
         $this->editingId   = $talent->id;
         $this->name        = $talent->name;
+        $this->rank        = $talent->rank ?? '';
         $this->tagsInput   = implode(', ', $talent->tags ?? []);
         $this->chakra_cost = $talent->chakra_cost ?? '';
         $this->test_dice   = $talent->test_dice ?? '';
@@ -137,7 +139,7 @@ class TalentPanel extends Component
     public function resetForm(): void
     {
         $this->reset([
-            'editingId', 'name', 'tagsInput', 'chakra_cost', 'test_dice', 'damage_dice', 'actions',
+            'editingId', 'name', 'rank', 'tagsInput', 'chakra_cost', 'test_dice', 'damage_dice', 'actions',
             'area_range', 'target', 'description', 'infos', 'image', 'imagePath', 'media', 'mediaPath', 'volume',
         ]);
     }
@@ -147,6 +149,7 @@ class TalentPanel extends Component
     {
         $this->validate([
             'name'        => 'required|string|max:120',
+            'rank'        => 'nullable|string|max:60',
             'tagsInput'   => 'nullable|string|max:255',
             'chakra_cost' => 'nullable|string|max:60',
             'test_dice'   => 'nullable|string|max:120',
@@ -161,20 +164,11 @@ class TalentPanel extends Component
             'volume'      => 'integer|min:0|max:100',
         ]);
 
-        $tags = collect(explode(',', $this->tagsInput))
-            ->map(fn ($t) => trim(str_replace(['"', "'"], '', $t)))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        // Garante que cada tag exista no dicionário (descrição preenchida depois)
-        foreach ($tags as $t) {
-            Tag::firstOrCreate(['name' => $t]);
-        }
+        $tags = Tag::canonicalList(explode(',', $this->tagsInput));
 
         $data = [
             'name'        => $this->name,
+            'rank'        => $this->rank ?: null,
             'tags'        => $tags,
             'chakra_cost' => $this->chakra_cost ?: null,
             'test_dice'   => $this->test_dice ?: null,
@@ -243,7 +237,11 @@ class TalentPanel extends Component
     // ---------- Significado da tag ----------
     public function openTag(string $name): void
     {
-        $tag = Tag::firstOrCreate(['name' => $name]);
+        $canonical = Tag::canonicalName($name);
+        if ($canonical === null) {
+            return;
+        }
+        $tag = Tag::firstOrCreate(['name' => $canonical]);
 
         $this->tagName        = $tag->name;
         $this->tagDescription = $tag->description ?? '';
@@ -298,6 +296,7 @@ class TalentPanel extends Component
             'exported_at' => now()->toIso8601String(),
             'talents' => $talents->map(fn ($t) => [
                 'name'        => $t->name,
+                'rank'        => $t->rank,
                 'tags'        => $t->tags ?? [],
                 'chakra_cost' => $t->chakra_cost,
                 'test_dice'   => $t->test_dice,
@@ -339,11 +338,12 @@ class TalentPanel extends Component
 
         // Traz o dicionário de tags (preenche descrição só se ainda estiver vazia)
         foreach (($data['tags'] ?? []) as $t) {
-            if (empty($t['name'])) {
+            $name = Tag::canonicalName((string) ($t['name'] ?? ''));
+            if ($name === null) {
                 continue;
             }
-            $tag = Tag::firstOrCreate(['name' => $t['name']]);
-            if (empty($tag->description) && ! empty($t['description'])) {
+            $tag = Tag::where('name', $name)->first();
+            if ($tag && empty($tag->description) && ! empty($t['description'])) {
                 $tag->update(['description' => $t['description']]);
             }
         }
@@ -357,16 +357,11 @@ class TalentPanel extends Component
                 continue;
             }
 
-            $tags = collect((array) ($t['tags'] ?? []))
-                ->map(fn ($x) => trim(str_replace(['"', "'"], '', (string) $x)))
-                ->filter()->unique()->values()->all();
-
-            foreach ($tags as $x) {
-                Tag::firstOrCreate(['name' => $x]);
-            }
+            $tags = Tag::canonicalList((array) ($t['tags'] ?? []));
 
             auth()->user()->talents()->create([
                 'name'        => mb_substr((string) $t['name'], 0, 120),
+                'rank'        => $t['rank'] ?? null,
                 'tags'        => $tags,
                 'chakra_cost' => $t['chakra_cost'] ?? null,
                 'test_dice'   => $t['test_dice'] ?? null,

@@ -16,7 +16,7 @@ class Equipment extends Model
     protected $table = 'equipments';
 
     protected $fillable = [
-        'user_id', 'name', 'image', 'media', 'volume', 'tags',
+        'user_id', 'name', 'rank', 'image', 'media', 'volume', 'tags',
         'test_dice', 'damage_dice', 'space', 'description', 'infos', 'hidden',
     ];
 

@@ -57,6 +57,16 @@
                     class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:border-amber-500 focus:ring-0 focus:outline-none">
             </div>
 
+            {{-- Rank/Nível (jutsu/talento/equipamento) --}}
+            @if(in_array($formType, ['jutsus', 'talents', 'equipments']))
+                <div class="w-1/2">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Rank/Nível</label>
+                    <input type="text" wire:model="fRank" dusk="lib-form-rank"
+                        class="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-white text-sm focus:border-amber-500 focus:ring-0 focus:outline-none">
+                    @error('fRank') <p class="text-[10px] text-red-400 mt-1">{{ $message }}</p> @enderror
+                </div>
+            @endif
+
             {{-- Campos específicos de jutsu/talento --}}
             @if(in_array($formType, ['jutsus', 'talents']))
                 <div class="grid grid-cols-2 gap-2">
@@ -157,6 +167,7 @@
     @else
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
             @foreach($items as $item)
+                @php $expandable = !empty($item['description']) || !empty($item['infos']); @endphp
                 <div x-data="{ open: false }"
                     class="bg-gray-900 border rounded-lg p-2.5 {{ $item['hidden'] ? 'border-gray-700/60 opacity-75' : 'border-gray-700' }}"
                     dusk="lib-card-{{ $item['type'] }}-{{ $item['id'] }}">
@@ -165,10 +176,19 @@
                             <span class="inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded {{ $typeBadge[$item['type']] }}">
                                 {{ $typeLabels[$item['type']] }}
                             </span>
-                            <h4 class="text-[13px] font-semibold text-white truncate mt-1 flex items-center gap-1">
-                                {{ $item['name'] }}
+                            <h4 class="text-[13px] font-semibold text-white mt-1 flex items-center gap-1">
+                                @if($expandable)
+                                    <button type="button" @click="open = !open"
+                                        title="Ver descrição e infos"
+                                        class="min-w-0 flex items-center gap-1 text-left hover:text-amber-300 transition-colors">
+                                        <span class="truncate">{{ $item['name'] }}</span>
+                                        <span class="text-gray-500 text-[9px] flex-shrink-0" x-text="open ? '▴' : '▾'"></span>
+                                    </button>
+                                @else
+                                    <span class="truncate">{{ $item['name'] }}</span>
+                                @endif
                                 @if($item['hidden'])
-                                    <span title="Oculto" class="text-gray-500 text-[11px]">🚫</span>
+                                    <span title="Oculto" class="text-gray-500 text-[11px] flex-shrink-0">🚫</span>
                                 @endif
                             </h4>
                         </div>
@@ -208,13 +228,22 @@
                         </div>
                     @endif
 
-                    {{-- Descrição --}}
-                    @if($item['description'])
-                        <button type="button" @click="open = !open" class="text-[10px] text-gray-500 hover:text-amber-300 mt-2">
-                            <span x-show="!open">▾ descrição</span>
-                            <span x-show="open" x-cloak>▴ ocultar</span>
-                        </button>
-                        <p x-show="open" x-cloak class="text-[11px] text-gray-300 whitespace-pre-line mt-1">{{ $item['description'] }}</p>
+                    {{-- Descrição + Infos (expandem ao clicar no nome) --}}
+                    @if($expandable)
+                        <div x-show="open" x-cloak class="mt-2 space-y-1.5">
+                            @if($item['description'])
+                                <div>
+                                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Descrição</p>
+                                    <p class="text-[11px] text-gray-300 whitespace-pre-line">{{ $item['description'] }}</p>
+                                </div>
+                            @endif
+                            @if($item['infos'])
+                                <div>
+                                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Infos</p>
+                                    <p class="text-[11px] text-gray-300 whitespace-pre-line">{{ $item['infos'] }}</p>
+                                </div>
+                            @endif
+                        </div>
                     @endif
 
                     <p class="text-[9px] text-gray-600 mt-2 text-right">por {{ $item['creator'] }}</p>

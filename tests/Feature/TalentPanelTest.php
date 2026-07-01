@@ -53,7 +53,7 @@ class TalentPanelTest extends TestCase
 
         $this->assertNotNull($talent);
         $this->assertSame($user->id, $talent->user_id);
-        $this->assertSame(['passivo', 'percepção'], $talent->tags);
+        $this->assertSame(['Passivo', 'Percepção'], $talent->tags);
         $this->assertTrue($character->talents()->where('talents.id', $talent->id)->exists());
     }
 
@@ -122,8 +122,8 @@ class TalentPanelTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        $this->assertDatabaseHas('tags', ['name' => 'físico']);
-        $this->assertDatabaseHas('tags', ['name' => 'ofensivo']);
+        $this->assertDatabaseHas('tags', ['name' => 'Físico']);
+        $this->assertDatabaseHas('tags', ['name' => 'Ofensivo']);
     }
 
     public function test_criar_talento_salva_dados_dano_e_volume(): void
@@ -225,7 +225,7 @@ class TalentPanelTest extends TestCase
 
         $this->assertDatabaseHas('talents', ['user_id' => $user->id, 'name' => 'Resistência']);
         $this->assertDatabaseHas('talents', ['user_id' => $user->id, 'name' => 'Furtividade']);
-        $this->assertDatabaseHas('tags', ['name' => 'físico', 'description' => 'Talentos corporais.']);
+        $this->assertDatabaseHas('tags', ['name' => 'Físico', 'description' => 'Talentos corporais.']);
     }
 
     public function test_import_nao_duplica_talento_existente(): void

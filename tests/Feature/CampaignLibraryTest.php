@@ -123,7 +123,7 @@ class CampaignLibraryTest extends TestCase
         $action = Action::firstWhere('name', 'Escalar muro');
         $this->assertNotNull($action);
         $this->assertSame($player1->id, $action->user_id);
-        $this->assertSame(['físico', 'atletismo'], $action->tags);
+        $this->assertSame(['Físico', 'Atletismo'], $action->tags);
     }
 
     public function test_membro_cria_jutsu_na_biblioteca(): void
@@ -134,6 +134,7 @@ class CampaignLibraryTest extends TestCase
             ->test(CampaignLibrary::class, ['campaignId' => $campaign->id])
             ->call('startCreate', 'jutsus')
             ->set('fName', 'Bola de Fogo')
+            ->set('fRank', 'C')
             ->set('fChakra', '10')
             ->set('fTest', 'd20+ninjutsu')
             ->set('fDamage', '4d6')
@@ -143,8 +144,15 @@ class CampaignLibraryTest extends TestCase
         $jutsu = \App\Models\Jutsu::firstWhere('name', 'Bola de Fogo');
         $this->assertNotNull($jutsu);
         $this->assertSame($player1->id, $jutsu->user_id);
+        $this->assertSame('C', $jutsu->rank);
         $this->assertSame('10', $jutsu->chakra_cost);
         $this->assertSame('4d6', $jutsu->damage_dice);
+
+        // O rank é pré-preenchido ao editar.
+        Livewire::actingAs($player1)
+            ->test(CampaignLibrary::class, ['campaignId' => $campaign->id])
+            ->call('startEdit', 'jutsus', $jutsu->id)
+            ->assertSet('fRank', 'C');
     }
 
     public function test_so_o_criador_edita_o_jutsu(): void
@@ -158,6 +166,34 @@ class CampaignLibraryTest extends TestCase
         Livewire::actingAs($master)
             ->test(CampaignLibrary::class, ['campaignId' => $campaign->id])
             ->call('startEdit', 'jutsus', $jutsu->id);
+    }
+
+    public function test_filtro_por_tag_e_ou_nao_e(): void
+    {
+        [$campaign, $master, $player1] = $this->campaignWithMembers();
+        $player1->jutsus()->create(['name' => 'JutsuFogo', 'tags' => ['Fogo']]);
+        $player1->jutsus()->create(['name' => 'JutsuVento', 'tags' => ['Vento']]);
+        $player1->jutsus()->create(['name' => 'JutsuAgua', 'tags' => ['Agua']]);
+
+        // Selecionar Fogo E Vento traz itens com QUALQUER uma delas (OU), não ambas.
+        Livewire::actingAs($master)
+            ->test(CampaignLibrary::class, ['campaignId' => $campaign->id])
+            ->set('activeFilters', ['Fogo', 'Vento'])
+            ->assertSee('JutsuFogo')
+            ->assertSee('JutsuVento')
+            ->assertDontSee('JutsuAgua');
+    }
+
+    public function test_tags_do_filtro_em_ordem_alfabetica(): void
+    {
+        [$campaign, $master, $player1] = $this->campaignWithMembers();
+        $player1->jutsus()->create(['name' => 'J1', 'tags' => ['Zangado', 'agua', 'Bola']]);
+
+        $allTags = Livewire::actingAs($master)
+            ->test(CampaignLibrary::class, ['campaignId' => $campaign->id])
+            ->viewData('allTags')->all();
+
+        $this->assertSame(['agua', 'Bola', 'Zangado'], $allTags);
     }
 
     public function test_filtro_por_tipo_esconde_outros_tipos(): void
