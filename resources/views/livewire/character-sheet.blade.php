@@ -448,9 +448,14 @@ function characterSheet(cid, campaigns) {
         },
 
         init() {
-            // Campanha selecionada para compartilhar, persistida por ficha
+            // Campanha selecionada para compartilhar, persistida por ficha.
+            // Só aplica se a ficha ainda estiver nessa campanha (ignora ids obsoletos).
             const savedShare = localStorage.getItem('share_' + this.cid);
-            if (savedShare) this.shareCampaignId = savedShare;
+            if (savedShare && this.campaigns.some((c) => c.id === parseInt(savedShare))) {
+                this.shareCampaignId = savedShare;
+            } else if (savedShare) {
+                localStorage.removeItem('share_' + this.cid);
+            }
             this.$watch('shareCampaignId', (v) => {
                 localStorage.setItem('share_' + this.cid, v ?? '');
                 this.subscribeFeed();

@@ -620,7 +620,17 @@ class CharacterSheet extends Component
 
     public function getInitiative(int $campaignId): array
     {
-        return $this->campaignForInitiative($campaignId)->initiative ?: Campaign::emptyInitiative();
+        // Leitura passiva disparada no load a partir de um id persistido no cliente.
+        // Se a ficha não puder acessar essa campanha (ex.: id obsoleto), degrada para
+        // estado vazio em vez de abortar 403 e estourar o modal de erro do Livewire.
+        $character = Character::find($this->characterId);
+        if (! $character
+            || ! $character->canBeManagedBy(auth()->user())
+            || ! $character->isInCampaign($campaignId)) {
+            return Campaign::emptyInitiative();
+        }
+
+        return Campaign::find($campaignId)?->initiative ?: Campaign::emptyInitiative();
     }
 
     /** Jogador entra na iniciativa (d20 + agilidade + mod, rolado no cliente). Re-rolar substitui. */
